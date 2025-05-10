@@ -15,6 +15,9 @@ jobs:
           restore-keys: |
             maven-${{ runner.os }}
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
