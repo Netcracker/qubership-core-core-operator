@@ -12,8 +12,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}
-          restore-keys: |
-            maven-${{ runner.os }}
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
