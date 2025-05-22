@@ -108,7 +108,7 @@
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
             <artifactId>jenvtest</artifactId>
-            <version>0.9.7</version>
+            <version>v9.2.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
