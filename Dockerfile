@@ -1,4 +1,4 @@
-FROM openjdk:21
+FROM openjdk:25
 MAINTAINER qubership
 
 COPY --chown=10001:0 service/target/quarkus-app/lib/ /app/lib/
