@@ -102,7 +102,7 @@
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
             <artifactId>operator-framework-junit-5</artifactId>
-            <version>4.9.7</version>
+            <version>5.1.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
