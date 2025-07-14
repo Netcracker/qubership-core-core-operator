@@ -172,4 +172,4 @@ runs:
         build-args: ${{ inputs.build-args != ''}}
         secrets: |
             "github-token=${{ env.GITHUB_TOKEN }}"
-            "github-username: ${{ github.actor }}""
+            "github-username=${{ github.actor }}"

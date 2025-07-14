@@ -107,6 +107,9 @@ jobs:
       matrix:
         component: ${{ fromJson(needs.load_config.outputs.components) }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Docker
         uses: ./.github/actions/docker-action.yaml
         with:
