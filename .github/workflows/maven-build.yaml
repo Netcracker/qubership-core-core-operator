@@ -14,3 +14,9 @@ jobs:
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  docker-build:
+    needs: [mvn]
+    uses: ./.github/workflows/docker-build.yaml
+    with:
+      dry-run: false
