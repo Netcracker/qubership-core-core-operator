@@ -11,13 +11,13 @@
     <artifactId>core-operator</artifactId>
 
     <properties>
-        <compiler-plugin.version>3.12.1</compiler-plugin.version>
+        <compiler-plugin.version>3.14.0</compiler-plugin.version>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.12.3</quarkus.platform.version>
-        <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+        <quarkus.platform.version>3.15.5</quarkus.platform.version>
+        <jacoco.plugin.version>0.8.13</jacoco.plugin.version>
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.5.2</surefire-plugin.version>
+        <surefire-plugin.version>3.5.3</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
     </properties>
 
@@ -74,12 +74,12 @@
         <dependency>
             <groupId>org.qubership.cloud</groupId>
             <artifactId>core-error-handling-rest</artifactId>
-            <version>3.0.2</version>
+            <version>3.1.2</version>
         </dependency>
         <dependency>
             <groupId>org.qubership.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>7.0.0</version>
+            <version>7.1.1</version>
         </dependency>
         <!-- Other -->
         <dependency>
@@ -90,7 +90,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.36</version>
+            <version>1.18.38</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
@@ -141,7 +141,7 @@
             <plugin>
                 <groupId>io.smallrye</groupId>
                 <artifactId>jandex-maven-plugin</artifactId>
-                <version>3.1.2</version>
+                <version>3.2.6</version>
                 <executions>
                     <execution>
                         <id>make-index</id>
