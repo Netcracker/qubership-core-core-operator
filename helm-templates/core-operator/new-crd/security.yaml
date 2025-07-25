@@ -1,0 +1,53 @@
+#https://docs.yaook.cloud/handbook/custom-resource-status.html#phases
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: securities.core.qubership.org
+spec:
+  group: core.qubership.org
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        # status enables the status subresource.
+        status: { }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            subKind:
+              type: string
+            spec:
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+            status:
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                phase:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastTransitionTime:
+                        type: string
+                      lastUpdateTime:
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      status:
+                        type: boolean
+                      type:
+                        type: string
+  names:
+    plural: securities
+    singular: security
+    kind: Security
+  scope: Namespaced
