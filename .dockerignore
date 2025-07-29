@@ -1,18 +1,5 @@
-# Exclude everything by default
 *
 
-# Include necessary files for build
 !pom.xml
 !service/pom.xml
 !service/src/**
-
-# Include build artifacts for runtime stage
-!service/target/*-runner
-!service/target/*-runner.jar
-!service/target/lib/**
-!service/target/quarkus-app/**
-
-# Exclude unnecessary files even if they're in src
-service/src/**/*.md
-service/src/**/*.txt
-service/src/**/*.log
