@@ -17,6 +17,6 @@ jobs:
 
   docker-build:
     needs: [mvn]
-    uses: ./.github/workflows/docker-build.yaml
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@feature/java-docker-multi-stage
     with:
       dry-run: false
