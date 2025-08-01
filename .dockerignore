@@ -1,5 +1,5 @@
 *
-!service/target/*-runner
-!service/target/*-runner.jar
-!service/target/lib/*
-!service/target/quarkus-app/*
+
+!pom.xml
+!service/pom.xml
+!service/src/**

@@ -14,3 +14,9 @@ jobs:
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  docker-build:
+    needs: [mvn]
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@feature/java-docker-multi-stage
+    with:
+      dry-run: false
