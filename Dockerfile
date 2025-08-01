@@ -52,4 +52,7 @@ USER 10001:0
 
 EXPOSE 8080
 
+WORKDIR /app
+USER 10001:10001
+
 CMD ["/usr/bin/java", "-Xmx512m", "-jar", "/app/quarkus-run.jar"]
