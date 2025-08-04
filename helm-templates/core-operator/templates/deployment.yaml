@@ -101,16 +101,6 @@ spec:
                     value: '{{ .Values.CONSUL_URL }}'
                 -   name: COMPOSITE_STRUCTURE_XAAS_RECEIVERS
                     value: '{{ .Values.COMPOSITE_STRUCTURE_XAAS_RECEIVERS | default (include "availableXaasesList" .)}}'
-                -   name: TRACING_ENABLED
-                    value: '{{ .Values.TRACING_ENABLED }}'
-                -   name: TRACING_HOST
-                    value: '{{ .Values.TRACING_HOST }}'
-                -   name: TRACING_SAMPLER_RATELIMITING
-                    value: '{{ .Values.TRACING_SAMPLER_RATELIMITING }}'
-                -   name: NC_DIAGNOSTIC_MODE
-                    value: '{{ .Values.NC_DIAGNOSTIC_MODE }}'
-                -   name: NC_DIAGNOSTIC_AGENT_SERVICE
-                    value: '{{ .Values.NC_DIAGNOSTIC_AGENT_SERVICE }}'
                 -   name: DISABLE_DEPRECATED_API
                     value: '{{ .Values.DISABLE_DEPRECATED_API }}'
                 -   name: LOG_LEVEL
