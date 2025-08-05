@@ -74,6 +74,9 @@
       "SSL_SECRET": "defaultsslcertificate",
       "TAG": "",
       "TENANT_DEFAULT_DOMAIN_ZONE": "",
+      "TRACING_ENABLED": false,
+      "TRACING_HOST": "nc-diagnostic-agent",
+      "TRACING_SAMPLER_RATELIMITING": 10,
       "ARTIFACT_DESCRIPTOR_VERSION": "",
       "MONITORING_ENABLED": false,
       "CLOUD_TOPOLOGY_KEY": "kubernetes.io/hostname",
@@ -182,6 +185,29 @@
       "title": "The TAG schema",
       "internal": true
     },
+    "TRACING_ENABLED": {
+      "$id": "#/properties/TRACING_ENABLED",
+      "$ref": "#/definitions/booleanOrString",
+      "description": "Is tracing enabled",
+      "examples": [
+        false
+      ],
+      "title": "The TRACING_ENABLED schema"
+    },
+    "TRACING_HOST": {
+      "$id": "#/properties/TRACING_HOST",
+      "type": "string",
+      "title": "The TRACING_HOST schema",
+      "description": "Tracing server host",
+      "default": "nc-diagnostic-agent"
+    },
+    "TRACING_SAMPLER_RATELIMITING": {
+      "$id": "#/properties/TRACING_SAMPLER_RATELIMITING",
+      "$ref": "#/definitions/integerOrString",
+      "default": 10,
+      "description": "The rate for requests sampling (number of traces per second)",
+      "title": "The TRACING_SAMPLER_RATELIMITING schema"
+    },
     "ARTIFACT_DESCRIPTOR_VERSION": {
       "$id": "#/properties/ARTIFACT_DESCRIPTOR_VERSION",
       "type": "string",
@@ -261,6 +287,28 @@
       "type": "string",
       "title": "The SERVICE_NAME schema",
       "description": "Name of a service.",
+      "internal": true
+    },
+    "NC_DIAGNOSTIC_MODE": {
+      "$id": "#/properties/NC_DIAGNOSTIC_MODE",
+      "type": "string",
+      "title": "The NC_DIAGNOSTIC_MODE schema",
+      "description": "Type of CDT diagnostic mode",
+      "examples": [
+        "dev",
+        "prod",
+        "off"
+      ],
+      "internal": true
+    },
+    "NC_DIAGNOSTIC_AGENT_SERVICE": {
+      "$id": "#/properties/NC_DIAGNOSTIC_AGENT_SERVICE",
+      "type": "string",
+      "title": "The NC_DIAGNOSTIC_AGENT_SERVICE schema",
+      "description": "Diagnostic agent location",
+      "examples": [
+        "nc-diagnostic-agent"
+      ],
       "internal": true
     },
     "CLOUD_TOPOLOGIES": {
