@@ -3,7 +3,7 @@
       {
         "name": "qubership-core-core-operator",
         "file": "./Dockerfile",
-        "context": "./artifacts/qubership-core-core-operator/",
+        "context": "./artifacts/pre-built-artifact/",
         "download-artifact": true
       }
     ],
