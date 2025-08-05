@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-core-operator",
+        "file": "./Dockerfile",
+        "context": "./artifacts/qubership-core-core-operator/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }
