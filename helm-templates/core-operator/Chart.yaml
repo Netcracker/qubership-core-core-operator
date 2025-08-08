@@ -5,5 +5,5 @@ name: core-operator
 version: 1.0.0
 dependencies:
   - name: coretpl
-    version: "0.2.2"
+    version: "0.2.3"
     repository: "https://netcracker.github.io/qubership-core-bootstrap/"
