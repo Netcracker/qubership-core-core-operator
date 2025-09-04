@@ -42,6 +42,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String V1 = "v1";
     private static final String EVENT = "Event";
     private static final String DEFAULT_API_VERSION = "1";
+    private boolean reconcileTriggered = false;
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
     protected DeclarativeKubernetesClient client;
@@ -79,18 +80,18 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                     new Condition(VALIDATED_STEP_NAME, ProcessStatus.FAILED, "Invalid CR Configuration", "One of the mandatory CR fields is missing"));
             return UpdateControl.updateStatus(resource);
         }
+        if (!reconcileTriggered) {
+            log.info("First on start reconciliation, clear conditions and reconcile.");
+            reconcileTriggered = true;
+            return forceUpdate(resource);
+        }
         Long generation = resource.getMetadata().getGeneration();
         if (resource.getStatus().getObservedGeneration() != null && !Objects.equals(resource.getStatus().getObservedGeneration(), generation)) {
-            //this means that someone manually updated the resource, we must clear all conditions as they no longer reflect updated object status
+            //this means that someone manually updated the resource or first reconcile on startup, we must clear all conditions as they no longer reflect updated object status
             log.info("Resource was updated, clear conditions and reconcile. Generation={}, ObservedGeneration={}", generation, resource.getStatus().getObservedGeneration());
-            status.getConditions().clear();
-            Phase p = resource.getStatus().getPhase();
-            //set to Updating to force this CR to be reconciled again
-            if (p == UPDATED_PHASE || p == INVALID_CONFIGURATION) {
-                p = UPDATING;
-            }
-            return setPhaseAndReschedule(resource, p, true);
+            return forceUpdate(resource);
         }
+
         Phase phase = resource.getStatus().getPhase();
         log.debug("reconciling phase={}", phase);
         try {
@@ -105,7 +106,8 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
                     status.getConditions().clear();
-                    yield reconcileInternal(resource);
+                    retryResourceCache.remove(ResourceID.fromResource(resource));
+                    yield UpdateControl.patchStatus(resource);
                 }
                 case INVALID_CONFIGURATION -> {
                     log.info("CR content is invalid, no additional processing is possible");
@@ -406,5 +408,15 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
         String typeFromMeta = (String) meta.get("type");
         return Objects.requireNonNullElse(typeFromMeta, TYPE_UNKNOWN);
+    }
+
+    private UpdateControl<T> forceUpdate(T resource) {
+        resource.getStatus().getConditions().clear();
+        Phase p = resource.getStatus().getPhase();
+        //set to Updating to force this CR to be reconciled again
+        if (p == UPDATED_PHASE || p == INVALID_CONFIGURATION) {
+            p = UPDATING;
+        }
+        return setPhaseAndReschedule(resource, p, true);
     }
 }
