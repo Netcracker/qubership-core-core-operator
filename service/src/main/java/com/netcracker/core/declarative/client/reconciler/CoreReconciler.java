@@ -42,7 +42,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String V1 = "v1";
     private static final String EVENT = "Event";
     private static final String DEFAULT_API_VERSION = "1";
-    private boolean reconcileTriggered = false;
+    private boolean firstTimeReconcile = true;
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
     protected DeclarativeKubernetesClient client;
@@ -80,9 +80,9 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                     new Condition(VALIDATED_STEP_NAME, ProcessStatus.FAILED, "Invalid CR Configuration", "One of the mandatory CR fields is missing"));
             return UpdateControl.updateStatus(resource);
         }
-        if (!reconcileTriggered) {
+        if (firstTimeReconcile) {
             log.info("First on start reconciliation, clear conditions and reconcile.");
-            reconcileTriggered = true;
+            firstTimeReconcile = false;
             return forceUpdate(resource);
         }
         Long generation = resource.getMetadata().getGeneration();
