@@ -1,10 +1,8 @@
 package com.netcracker.core.declarative.client.reconciler;
 
-import com.netcracker.core.declarative.client.rest.Condition;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
-import com.netcracker.core.declarative.client.rest.DeclarativeRequest;
-import com.netcracker.core.declarative.client.rest.DeclarativeResponse;
-import com.netcracker.core.declarative.client.rest.ProcessStatus;
+import com.netcracker.cloud.core.error.rest.tmf.TmfError;
+import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import com.netcracker.core.declarative.client.rest.*;
 import com.netcracker.core.declarative.resources.base.CoreCondition;
 import com.netcracker.core.declarative.resources.base.CoreResource;
 import com.netcracker.core.declarative.resources.maas.Maas;
@@ -23,46 +21,19 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import com.netcracker.cloud.core.error.rest.tmf.TmfError;
-import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
 import org.slf4j.MDC;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import static com.netcracker.core.declarative.client.constants.Constants.KIND;
-import static com.netcracker.core.declarative.client.constants.Constants.PHASE;
-import static com.netcracker.core.declarative.client.constants.Constants.MESSAGE_UNKNOWN;
-import static com.netcracker.core.declarative.client.constants.Constants.RESOURCE_NAME;
-import static com.netcracker.core.declarative.client.constants.Constants.SESSION_ID_KEY;
-import static com.netcracker.core.declarative.client.constants.Constants.SUB_KIND;
-import static com.netcracker.core.declarative.client.constants.Constants.TYPE_UNKNOWN;
-import static com.netcracker.core.declarative.client.constants.Constants.VALIDATED_STEP_NAME;
-import static com.netcracker.core.declarative.client.constants.Constants.X_REQUEST_ID;
+import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.client.rest.ProcessStatus.COMPLETED;
-import static com.netcracker.core.declarative.resources.base.Phase.BACKING_OFF;
-import static com.netcracker.core.declarative.resources.base.Phase.INVALID_CONFIGURATION;
-import static com.netcracker.core.declarative.resources.base.Phase.UNKNOWN;
-import static com.netcracker.core.declarative.resources.base.Phase.UPDATED_PHASE;
-import static com.netcracker.core.declarative.resources.base.Phase.UPDATING;
-import static com.netcracker.core.declarative.resources.base.Phase.WAITING_FOR_DEPENDS;
+import static com.netcracker.core.declarative.resources.base.Phase.*;
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @QuarkusTest
 class CoreReconcilerTest {
@@ -141,6 +112,24 @@ class CoreReconcilerTest {
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(UPDATED_PHASE, maasUpdateControl.getResource().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
+    }
+
+    @Test
+    void sessionLabelDifferTriggersUpdatingFromUpdatedPhaseOnStart() throws Exception {
+        Maas maas = new Maas();
+        maas.setSubKind("TopicTemplate");
+        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
+        Map<String, String> labels = new HashMap<>();
+        ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, Map.of(SESSION_ID_LABEL, "some-session"), null, "maasName", "namespace", null, "0", "", "uid");
+        maas.setMetadata(meta);
+        maas.getStatus().setPhase(UPDATED_PHASE);
+        maas.getStatus().getConditions().put("SomeCondition", new CoreCondition("1", "2", "m", "r", COMPLETED, true, "t"));
+
+        UpdateControl<Maas> updateControl = maaSReconciler.reconcile(maas, null);
+
+        assertEquals(UPDATING, updateControl.getResource().getStatus().getPhase());
+        assertTrue(updateControl.getResource().getStatus().getConditions().isEmpty());
+        assertEquals(1000L, (long) updateControl.getScheduleDelay().get());
     }
 
     @Test
@@ -283,28 +272,6 @@ class CoreReconcilerTest {
         assertEquals(UPDATING, updateControl.getResource().getStatus().getPhase());
         assertEquals(UPDATING.getValue(), MDC.get(PHASE));
         assertEquals(Map.of("test-key1", "test-value1"), updateControl.getResource().getSpec().getValue());
-    }
-
-    @Test
-    void firstTimeUpdatedPhaseTriggersUpdating() throws Exception {
-        KubernetesClient kubernetesClient = mock(KubernetesClient.class);
-        MaaSReconciler freshReconciler = new MaaSReconciler(kubernetesClient, maasDeclarativeClient);
-
-        Maas maas = new Maas();
-        maas.setSubKind("TopicTemplate");
-        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
-        Map<String, String> labels = new HashMap<>();
-        labels.put(SESSION_ID_LABEL, "sessionId");
-        ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, labels, null, "maasName", "namespace", null, "0", "", "uid");
-        maas.setMetadata(meta);
-        maas.getStatus().setPhase(UPDATED_PHASE);
-        maas.getStatus().getConditions().put("SomeCondition", new CoreCondition("1", "2", "m", "r", COMPLETED, true, "t"));
-
-        UpdateControl<Maas> updateControl = freshReconciler.reconcile(maas, null);
-
-        assertEquals(UPDATING, updateControl.getResource().getStatus().getPhase());
-        assertTrue(updateControl.getResource().getStatus().getConditions().isEmpty());
-        assertEquals(1000L, (long) updateControl.getScheduleDelay().get());
     }
 
     @Test

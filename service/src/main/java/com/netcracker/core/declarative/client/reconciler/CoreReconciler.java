@@ -1,6 +1,15 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import com.netcracker.core.declarative.client.cache.RetryResourceCache;
+import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
+import com.netcracker.core.declarative.client.rest.*;
+import com.netcracker.core.declarative.client.rest.Condition;
+import com.netcracker.core.declarative.resources.base.CoreCondition;
+import com.netcracker.core.declarative.resources.base.CoreResource;
+import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
+import com.netcracker.core.declarative.resources.base.Phase;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -13,15 +22,7 @@ import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
-import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
-import com.netcracker.core.declarative.client.cache.RetryResourceCache;
-import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
-import com.netcracker.core.declarative.client.rest.Condition;
-import com.netcracker.core.declarative.client.rest.*;
-import com.netcracker.core.declarative.resources.base.CoreCondition;
-import com.netcracker.core.declarative.resources.base.CoreResource;
-import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
-import com.netcracker.core.declarative.resources.base.Phase;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -30,10 +31,10 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
-import static jakarta.servlet.http.HttpServletResponse.*;
 import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.resources.base.Phase.*;
+import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
+import static jakarta.servlet.http.HttpServletResponse.*;
 
 public abstract class CoreReconciler<T extends CoreResource> implements Reconciler<T> {
     private static final String REPORTING_INSTANCE = "core-operator";
@@ -42,7 +43,6 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String V1 = "v1";
     private static final String EVENT = "Event";
     private static final String DEFAULT_API_VERSION = "1";
-    private boolean firstTimeReconcile = true;
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
     protected DeclarativeKubernetesClient client;
@@ -53,6 +53,9 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     @Inject
     @Named(Configuration.SESSION_ID_LABELS)
     protected List<String> sessionIdLabels;
+
+    @ConfigProperty(name = "DEPLOYMENT_SESSION_ID")
+    protected String deploymentSessionId;
 
     @SuppressWarnings("unused")
     public CoreReconciler() {
@@ -81,7 +84,8 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
 
         Phase phase = resource.getStatus().getPhase();
-        if (firstTimeReconcile && phase == UPDATED_PHASE) {
+        String sessionIdLabel = getSessionIdLabel(resource);
+        if ((sessionIdLabel.isEmpty() || !sessionIdLabel.equalsIgnoreCase(deploymentSessionId)) && phase == UPDATED_PHASE) {
             log.info("First on start reconciliation, clear conditions and reconcile.");
             resource.getStatus().getConditions().clear();
             return setPhaseAndReschedule(resource, UPDATING, true);
@@ -102,7 +106,6 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
         log.debug("reconciling phase={}", phase);
         try {
-            firstTimeReconcile = false;
             return switch (phase) {
                 case UNKNOWN -> {
                     MDC.put(X_REQUEST_ID, UUID.randomUUID().toString());
@@ -189,7 +192,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
             labels.put("app.kubernetes.io/processed-by-operator", REPORTING_INSTANCE);
             labels.put("app.kubernetes.io/part-of", "Cloud-Core");
             labels.put(X_REQUEST_ID, resource.getStatus().getRequestId());
-            sessionIdLabels.forEach(sessionId -> labels.put(sessionId, getLabelOrNull(resource)));
+            sessionIdLabels.forEach(sessionId -> labels.put(sessionId, getSessionIdLabel(resource)));
             ObjectMeta metadata = new ObjectMetaBuilder()
                     .withName(resource.getMetadata().getName() + "-" + resource.getMetadata().getUid() + "." + UUID.randomUUID())
                     .withLabels(labels)
@@ -370,7 +373,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
     }
 
-    private String getLabelOrNull(T resource) {
+    private String getSessionIdLabel(T resource) {
         return sessionIdLabels.stream()
                 .map(sessionIdLabel -> resource.getMetadata().getLabels().get(sessionIdLabel))
                 .filter(Objects::nonNull)
@@ -392,7 +395,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private void setupLogFormat(DeclarativeStatus status, T resource) {
         if (status.getRequestId() != null) {
             MDC.put(X_REQUEST_ID, status.getRequestId());
-            MDC.put(SESSION_ID_KEY, getLabelOrNull(resource));
+            MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
         }
         MDC.put(RESOURCE_NAME, resource.getMetadata().getName() == null ? "-" : resource.getMetadata().getName());
         MDC.put(KIND, resource.getKind() == null ? "-" : resource.getKind());
