@@ -70,8 +70,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
-        DeclarativeStatus status = resource.getStatus();
-        setupLogFormat(status, resource);
+        setupLogFormat(resource.getStatus(), resource);
         //if CR validation fails there's no need for further processing
         if (!isResourceValid(resource)) {
             log.error("resource failed validation, one of the mandatory fields is missing");
@@ -90,7 +89,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
         Long generation = resource.getMetadata().getGeneration();
         if (resource.getStatus().getObservedGeneration() != null && !Objects.equals(resource.getStatus().getObservedGeneration(), generation)) {
-            //this means that someone manually updated the resource or first reconcile on startup, we must clear all conditions as they no longer reflect updated object status
+            //this means that someone manually updated the resource, we must clear all conditions as they no longer reflect updated object status
             log.info("Resource was updated, clear conditions and reconcile. Generation={}, ObservedGeneration={}", generation, resource.getStatus().getObservedGeneration());
             resource.getStatus().getConditions().clear();
             Phase p = resource.getStatus().getPhase();
@@ -107,14 +106,14 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
             return switch (phase) {
                 case UNKNOWN -> {
                     MDC.put(X_REQUEST_ID, UUID.randomUUID().toString());
-                    status.setRequestId(MDC.get(X_REQUEST_ID));
+                    resource.getStatus().setRequestId(MDC.get(X_REQUEST_ID));
                     yield setPhaseAndReschedule(resource, UPDATING, false);
                 }
                 case UPDATING, BACKING_OFF -> reconcileInternal(resource);
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
-                    status.getConditions().clear();
+                    resource.getStatus().getConditions().clear();
                     retryResourceCache.remove(ResourceID.fromResource(resource));
                     yield UpdateControl.patchStatus(resource);
                 }
