@@ -244,7 +244,6 @@ class CoreReconcilerTest {
         updateControl = maaSReconciler.reconcile(maas, null);
 
         assertNotNull(MDC.get(X_REQUEST_ID));
-
         assertTrue(updateControl.getScheduleDelay().isEmpty());
     }
 
