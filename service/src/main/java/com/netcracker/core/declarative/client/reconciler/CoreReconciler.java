@@ -80,21 +80,30 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                     new Condition(VALIDATED_STEP_NAME, ProcessStatus.FAILED, "Invalid CR Configuration", "One of the mandatory CR fields is missing"));
             return UpdateControl.updateStatus(resource);
         }
-        if (firstTimeReconcile) {
+
+        Phase phase = resource.getStatus().getPhase();
+        if (firstTimeReconcile && phase == UPDATED_PHASE) {
             log.info("First on start reconciliation, clear conditions and reconcile.");
-            firstTimeReconcile = false;
-            return setUpdatingAndReschedule(resource);
+            resource.getStatus().getConditions().clear();
+            return setPhaseAndReschedule(resource, UPDATING, true);
         }
+
         Long generation = resource.getMetadata().getGeneration();
         if (resource.getStatus().getObservedGeneration() != null && !Objects.equals(resource.getStatus().getObservedGeneration(), generation)) {
             //this means that someone manually updated the resource or first reconcile on startup, we must clear all conditions as they no longer reflect updated object status
             log.info("Resource was updated, clear conditions and reconcile. Generation={}, ObservedGeneration={}", generation, resource.getStatus().getObservedGeneration());
-            return setUpdatingAndReschedule(resource);
+            resource.getStatus().getConditions().clear();
+            Phase p = resource.getStatus().getPhase();
+            //set to Updating to force this CR to be reconciled again
+            if (p == UPDATED_PHASE || p == INVALID_CONFIGURATION) {
+                p = UPDATING;
+            }
+            return setPhaseAndReschedule(resource, p, true);
         }
 
-        Phase phase = resource.getStatus().getPhase();
         log.debug("reconciling phase={}", phase);
         try {
+            firstTimeReconcile = false;
             return switch (phase) {
                 case UNKNOWN -> {
                     MDC.put(X_REQUEST_ID, UUID.randomUUID().toString());
@@ -408,15 +417,5 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
         String typeFromMeta = (String) meta.get("type");
         return Objects.requireNonNullElse(typeFromMeta, TYPE_UNKNOWN);
-    }
-
-    private UpdateControl<T> setUpdatingAndReschedule(T resource) {
-        resource.getStatus().getConditions().clear();
-        Phase p = resource.getStatus().getPhase();
-        //set to Updating to force this CR to be reconciled again
-        if (p == UPDATED_PHASE || p == INVALID_CONFIGURATION) {
-            p = UPDATING;
-        }
-        return setPhaseAndReschedule(resource, p, true);
     }
 }
