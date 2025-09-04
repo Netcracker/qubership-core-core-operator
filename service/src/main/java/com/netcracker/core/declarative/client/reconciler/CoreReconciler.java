@@ -86,7 +86,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         Phase phase = resource.getStatus().getPhase();
         String sessionIdLabel = getSessionIdLabel(resource);
         if ((sessionIdLabel.isEmpty() || !sessionIdLabel.equalsIgnoreCase(deploymentSessionId)) && phase == UPDATED_PHASE) {
-            log.info("First on start reconciliation, clear conditions and reconcile.");
+            log.info("SessionId on CR={} and Operator={} are different, clear conditions and reconcile.", sessionIdLabel, deploymentSessionId);
             resource.getStatus().getConditions().clear();
             return setPhaseAndReschedule(resource, UPDATING, true);
         }
