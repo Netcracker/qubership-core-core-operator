@@ -241,9 +241,11 @@ class CoreReconcilerTest {
         when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
         maas.getStatus().setPhase(UPDATED_PHASE);
 
-        maaSReconciler.reconcile(maas, null);
+        updateControl = maaSReconciler.reconcile(maas, null);
 
         assertNotNull(MDC.get(X_REQUEST_ID));
+
+        assertTrue(updateControl.getScheduleDelay().isEmpty());
     }
 
     @Test

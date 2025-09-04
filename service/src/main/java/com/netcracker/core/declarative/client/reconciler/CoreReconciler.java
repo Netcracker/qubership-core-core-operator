@@ -83,13 +83,13 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         if (firstTimeReconcile) {
             log.info("First on start reconciliation, clear conditions and reconcile.");
             firstTimeReconcile = false;
-            return forceUpdate(resource);
+            return setUpdatingAndReschedule(resource);
         }
         Long generation = resource.getMetadata().getGeneration();
         if (resource.getStatus().getObservedGeneration() != null && !Objects.equals(resource.getStatus().getObservedGeneration(), generation)) {
             //this means that someone manually updated the resource or first reconcile on startup, we must clear all conditions as they no longer reflect updated object status
             log.info("Resource was updated, clear conditions and reconcile. Generation={}, ObservedGeneration={}", generation, resource.getStatus().getObservedGeneration());
-            return forceUpdate(resource);
+            return setUpdatingAndReschedule(resource);
         }
 
         Phase phase = resource.getStatus().getPhase();
@@ -410,7 +410,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         return Objects.requireNonNullElse(typeFromMeta, TYPE_UNKNOWN);
     }
 
-    private UpdateControl<T> forceUpdate(T resource) {
+    private UpdateControl<T> setUpdatingAndReschedule(T resource) {
         resource.getStatus().getConditions().clear();
         Phase p = resource.getStatus().getPhase();
         //set to Updating to force this CR to be reconciled again
