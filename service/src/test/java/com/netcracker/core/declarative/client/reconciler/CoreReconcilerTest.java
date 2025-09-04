@@ -286,6 +286,28 @@ class CoreReconcilerTest {
     }
 
     @Test
+    void firstTimeUpdatedPhaseTriggersUpdating() throws Exception {
+        KubernetesClient kubernetesClient = mock(KubernetesClient.class);
+        MaaSReconciler freshReconciler = new MaaSReconciler(kubernetesClient, maasDeclarativeClient);
+
+        Maas maas = new Maas();
+        maas.setSubKind("TopicTemplate");
+        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
+        Map<String, String> labels = new HashMap<>();
+        labels.put(SESSION_ID_LABEL, "sessionId");
+        ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, labels, null, "maasName", "namespace", null, "0", "", "uid");
+        maas.setMetadata(meta);
+        maas.getStatus().setPhase(UPDATED_PHASE);
+        maas.getStatus().getConditions().put("SomeCondition", new CoreCondition("1", "2", "m", "r", COMPLETED, true, "t"));
+
+        UpdateControl<Maas> updateControl = freshReconciler.reconcile(maas, null);
+
+        assertEquals(UPDATING, updateControl.getResource().getStatus().getPhase());
+        assertTrue(updateControl.getResource().getStatus().getConditions().isEmpty());
+        assertEquals(1000L, (long) updateControl.getScheduleDelay().get());
+    }
+
+    @Test
     void addOrUpdateConditionTest() throws Exception {
         //1. Add new Condition to empty list of conditions
         HashMap<String, CoreCondition> conditions = new HashMap<>();
