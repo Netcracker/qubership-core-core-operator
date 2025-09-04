@@ -105,8 +105,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
                     status.getConditions().clear();
-                    retryResourceCache.remove(ResourceID.fromResource(resource));
-                    yield UpdateControl.patchStatus(resource);
+                    yield reconcileInternal(resource);
                 }
                 case INVALID_CONFIGURATION -> {
                     log.info("CR content is invalid, no additional processing is possible");
