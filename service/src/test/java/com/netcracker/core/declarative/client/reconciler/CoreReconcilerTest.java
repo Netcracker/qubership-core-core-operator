@@ -119,7 +119,6 @@ class CoreReconcilerTest {
         Maas maas = new Maas();
         maas.setSubKind("TopicTemplate");
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
-        Map<String, String> labels = new HashMap<>();
         ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, Map.of(SESSION_ID_LABEL, "some-session"), null, "maasName", "namespace", null, "0", "", "uid");
         maas.setMetadata(meta);
         maas.getStatus().setPhase(UPDATED_PHASE);
@@ -166,7 +165,7 @@ class CoreReconcilerTest {
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
         maas.setSubKind("TopicTemplate");
         Map<String, String> labels = new HashMap<>();
-        labels.put(SESSION_ID_LABEL, "sessionId");
+        labels.put(SESSION_ID_LABEL, "test-sessionId");
         ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 1L, labels, null, "maasName", "namespace", null, "0", "", "uid");
         maas.setMetadata(meta);
 
