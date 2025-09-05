@@ -241,6 +241,8 @@ class CoreReconcilerTest {
         when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
         maas.getStatus().setPhase(UPDATED_PHASE);
 
+        // check it is not rescheduled after second reconciliation
+        maaSReconciler.reconcile(maas, null);
         updateControl = maaSReconciler.reconcile(maas, null);
 
         assertNotNull(MDC.get(X_REQUEST_ID));
@@ -283,6 +285,26 @@ class CoreReconcilerTest {
         assertEquals(UPDATING, updateControl.getResource().getStatus().getPhase());
         assertEquals(UPDATING.getValue(), MDC.get(PHASE));
         assertEquals(Map.of("test-key1", "test-value1"), updateControl.getResource().getSpec().getValue());
+    }
+
+    @Test
+    void firstTimeUpdatedPhaseTriggersUpdating() throws Exception {
+        KubernetesClient kubernetesClient = mock(KubernetesClient.class);
+        MaaSReconciler freshReconciler = new MaaSReconciler(kubernetesClient, maasDeclarativeClient);
+
+        Maas maas = new Maas();
+        maas.setSubKind("TopicTemplate");
+        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
+        ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, Map.of(SESSION_ID_LABEL, "sessionId"), null, "maasName", "namespace", null, "0", "", "uid");
+        maas.setMetadata(meta);
+        maas.getStatus().setPhase(UPDATED_PHASE);
+        maas.getStatus().getConditions().put("SomeCondition", new CoreCondition("1", "2", "m", "r", COMPLETED, true, "t"));
+
+        UpdateControl<Maas> updateControl = freshReconciler.reconcile(maas, null);
+
+        assertEquals(UPDATING, updateControl.getResource().getStatus().getPhase());
+        assertTrue(updateControl.getResource().getStatus().getConditions().isEmpty());
+        assertEquals(1000L, (long) updateControl.getScheduleDelay().get());
     }
 
     @Test

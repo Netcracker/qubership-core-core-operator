@@ -1,6 +1,15 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import com.netcracker.core.declarative.client.cache.RetryResourceCache;
+import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
+import com.netcracker.core.declarative.client.rest.*;
+import com.netcracker.core.declarative.client.rest.Condition;
+import com.netcracker.core.declarative.resources.base.CoreCondition;
+import com.netcracker.core.declarative.resources.base.CoreResource;
+import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
+import com.netcracker.core.declarative.resources.base.Phase;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
@@ -13,15 +22,7 @@ import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
-import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
-import com.netcracker.core.declarative.client.cache.RetryResourceCache;
-import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
-import com.netcracker.core.declarative.client.rest.Condition;
-import com.netcracker.core.declarative.client.rest.*;
-import com.netcracker.core.declarative.resources.base.CoreCondition;
-import com.netcracker.core.declarative.resources.base.CoreResource;
-import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
-import com.netcracker.core.declarative.resources.base.Phase;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -30,10 +31,10 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
-import static jakarta.servlet.http.HttpServletResponse.*;
 import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.resources.base.Phase.*;
+import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
+import static jakarta.servlet.http.HttpServletResponse.*;
 
 public abstract class CoreReconciler<T extends CoreResource> implements Reconciler<T> {
     private static final String REPORTING_INSTANCE = "core-operator";
@@ -52,6 +53,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     @Inject
     @Named(Configuration.SESSION_ID_LABELS)
     protected List<String> sessionIdLabels;
+    private final Set<ResourceID> reconciledResources = new HashSet<>();
 
     @SuppressWarnings("unused")
     public CoreReconciler() {
@@ -69,8 +71,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
-        DeclarativeStatus status = resource.getStatus();
-        setupLogFormat(status, resource);
+        setupLogFormat(resource.getStatus(), resource);
         //if CR validation fails there's no need for further processing
         if (!isResourceValid(resource)) {
             log.error("resource failed validation, one of the mandatory fields is missing");
@@ -79,11 +80,22 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                     new Condition(VALIDATED_STEP_NAME, ProcessStatus.FAILED, "Invalid CR Configuration", "One of the mandatory CR fields is missing"));
             return UpdateControl.updateStatus(resource);
         }
+
+        Phase phase = resource.getStatus().getPhase();
+        ResourceID resourceID = ResourceID.fromResource(resource);
+        // Reconcile after start
+        if (!reconciledResources.contains(resourceID) && phase == UPDATED_PHASE) {
+            log.info("First on start reconciliation, clear conditions and reconcile.");
+            reconciledResources.add(resourceID);
+            resource.getStatus().getConditions().clear();
+            return setPhaseAndReschedule(resource, UPDATING, true);
+        }
+
         Long generation = resource.getMetadata().getGeneration();
         if (resource.getStatus().getObservedGeneration() != null && !Objects.equals(resource.getStatus().getObservedGeneration(), generation)) {
             //this means that someone manually updated the resource, we must clear all conditions as they no longer reflect updated object status
             log.info("Resource was updated, clear conditions and reconcile. Generation={}, ObservedGeneration={}", generation, resource.getStatus().getObservedGeneration());
-            status.getConditions().clear();
+            resource.getStatus().getConditions().clear();
             Phase p = resource.getStatus().getPhase();
             //set to Updating to force this CR to be reconciled again
             if (p == UPDATED_PHASE || p == INVALID_CONFIGURATION) {
@@ -91,21 +103,21 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
             }
             return setPhaseAndReschedule(resource, p, true);
         }
-        Phase phase = resource.getStatus().getPhase();
+
         log.debug("reconciling phase={}", phase);
         try {
             return switch (phase) {
                 case UNKNOWN -> {
                     MDC.put(X_REQUEST_ID, UUID.randomUUID().toString());
-                    status.setRequestId(MDC.get(X_REQUEST_ID));
+                    resource.getStatus().setRequestId(MDC.get(X_REQUEST_ID));
                     yield setPhaseAndReschedule(resource, UPDATING, false);
                 }
                 case UPDATING, BACKING_OFF -> reconcileInternal(resource);
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
-                    status.getConditions().clear();
-                    retryResourceCache.remove(ResourceID.fromResource(resource));
+                    resource.getStatus().getConditions().clear();
+                    retryResourceCache.remove(resourceID);
                     yield UpdateControl.patchStatus(resource);
                 }
                 case INVALID_CONFIGURATION -> {
@@ -180,7 +192,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
             labels.put("app.kubernetes.io/processed-by-operator", REPORTING_INSTANCE);
             labels.put("app.kubernetes.io/part-of", "Cloud-Core");
             labels.put(X_REQUEST_ID, resource.getStatus().getRequestId());
-            sessionIdLabels.forEach(sessionId -> labels.put(sessionId, getLabelOrNull(resource)));
+            sessionIdLabels.forEach(sessionId -> labels.put(sessionId, getSessionIdLabel(resource)));
             ObjectMeta metadata = new ObjectMetaBuilder()
                     .withName(resource.getMetadata().getName() + "-" + resource.getMetadata().getUid() + "." + UUID.randomUUID())
                     .withLabels(labels)
@@ -361,7 +373,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
     }
 
-    private String getLabelOrNull(T resource) {
+    private String getSessionIdLabel(T resource) {
         return sessionIdLabels.stream()
                 .map(sessionIdLabel -> resource.getMetadata().getLabels().get(sessionIdLabel))
                 .filter(Objects::nonNull)
@@ -383,7 +395,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private void setupLogFormat(DeclarativeStatus status, T resource) {
         if (status.getRequestId() != null) {
             MDC.put(X_REQUEST_ID, status.getRequestId());
-            MDC.put(SESSION_ID_KEY, getLabelOrNull(resource));
+            MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
         }
         MDC.put(RESOURCE_NAME, resource.getMetadata().getName() == null ? "-" : resource.getMetadata().getName());
         MDC.put(KIND, resource.getKind() == null ? "-" : resource.getKind());
