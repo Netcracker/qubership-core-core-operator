@@ -43,6 +43,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String V1 = "v1";
     private static final String EVENT = "Event";
     private static final String DEFAULT_API_VERSION = "1";
+    private static final String PROCESSED_BY_OPERATOR_VER_PROPERTY = "processed-by-operator-ver";
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
     protected DeclarativeKubernetesClient client;
@@ -84,10 +85,11 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
 
         Phase phase = resource.getStatus().getPhase();
-        String sessionIdLabel = getSessionIdLabel(resource);
+        String processedByOperatorVer = resource.getStatus().getAdditionalPropertyAsString(PROCESSED_BY_OPERATOR_VER_PROPERTY);
         // Reconcile after new operator deployment
-        if ((sessionIdLabel.isEmpty() || !sessionIdLabel.equalsIgnoreCase(deploymentSessionId)) && phase == UPDATED_PHASE) {
-            log.info("SessionId on CR={} and Operator={} are different, clear conditions and reconcile.", sessionIdLabel, deploymentSessionId);
+        if ((StringUtils.isEmpty(processedByOperatorVer) || !processedByOperatorVer.equalsIgnoreCase(deploymentSessionId)) && phase == UPDATED_PHASE) {
+            log.info("SessionId on CR={} and Operator={} are different, clear conditions and reconcile.", processedByOperatorVer, deploymentSessionId);
+            resource.getStatus().removeAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY);
             resource.getStatus().getConditions().clear();
             return setPhaseAndReschedule(resource, UPDATING, true);
         }
@@ -97,6 +99,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
             //this means that someone manually updated the resource, we must clear all conditions as they no longer reflect updated object status
             log.info("Resource was updated, clear conditions and reconcile. Generation={}, ObservedGeneration={}", generation, resource.getStatus().getObservedGeneration());
             resource.getStatus().getConditions().clear();
+            resource.getStatus().removeAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY);
             Phase p = resource.getStatus().getPhase();
             //set to Updating to force this CR to be reconciled again
             if (p == UPDATED_PHASE || p == INVALID_CONFIGURATION) {
@@ -117,6 +120,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
+                    resource.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
                     resource.getStatus().getConditions().clear();
                     retryResourceCache.remove(ResourceID.fromResource(resource));
                     yield UpdateControl.patchStatus(resource);
