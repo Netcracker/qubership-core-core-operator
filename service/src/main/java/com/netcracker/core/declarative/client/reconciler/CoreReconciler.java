@@ -53,7 +53,9 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     @Inject
     @Named(Configuration.SESSION_ID_LABELS)
     protected List<String> sessionIdLabels;
-    private final Set<ResourceID> reconciledResources = new HashSet<>();
+
+    @ConfigProperty(name = "DEPLOYMENT_SESSION_ID")
+    protected String deploymentSessionId;
 
     @SuppressWarnings("unused")
     public CoreReconciler() {
@@ -82,11 +84,10 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         }
 
         Phase phase = resource.getStatus().getPhase();
-        ResourceID resourceID = ResourceID.fromResource(resource);
-        // Reconcile after start
-        if (!reconciledResources.contains(resourceID) && phase == UPDATED_PHASE) {
-            log.info("First on start reconciliation, clear conditions and reconcile.");
-            reconciledResources.add(resourceID);
+        String sessionIdLabel = getSessionIdLabel(resource);
+        // Reconcile after new operator deployment
+        if ((sessionIdLabel.isEmpty() || !sessionIdLabel.equalsIgnoreCase(deploymentSessionId)) && phase == UPDATED_PHASE) {
+            log.info("SessionId on CR={} and Operator={} are different, clear conditions and reconcile.", sessionIdLabel, deploymentSessionId);
             resource.getStatus().getConditions().clear();
             return setPhaseAndReschedule(resource, UPDATING, true);
         }
@@ -117,7 +118,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
                     resource.getStatus().getConditions().clear();
-                    retryResourceCache.remove(resourceID);
+                    retryResourceCache.remove(ResourceID.fromResource(resource));
                     yield UpdateControl.patchStatus(resource);
                 }
                 case INVALID_CONFIGURATION -> {
