@@ -120,7 +120,6 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
                 case UPDATED_PHASE -> {
                     log.info("Successfully finished processing CR");
-                    resource.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
                     resource.getStatus().getConditions().clear();
                     retryResourceCache.remove(ResourceID.fromResource(resource));
                     yield UpdateControl.patchStatus(resource);
@@ -144,7 +143,10 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                     buildCondition(t, response.readEntity(DeclarativeResponse.class));
                     yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
                 }
-                case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
+                case SC_OK -> {
+                    t.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
+                    yield setPhaseAndReschedule(t, UPDATED_PHASE);
+                }
                 default ->
                         throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.getStatusInfo().getStatusCode()), 500);
             };
