@@ -143,10 +143,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                     buildCondition(t, response.readEntity(DeclarativeResponse.class));
                     yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
                 }
-                case SC_OK -> {
-                    t.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
-                    yield setPhaseAndReschedule(t, UPDATED_PHASE);
-                }
+                case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
                 default ->
                         throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.getStatusInfo().getStatusCode()), 500);
             };
@@ -269,6 +266,9 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         MDC.put(PHASE, phase.getValue());
         log.info("Transitioning to phase={}", phase);
         resource.getStatus().setPhase(phase);
+        if (phase == UPDATED_PHASE) {
+            resource.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
+        }
         int nextDelay = retryResourceCache.getNextDelay(phase, ResourceID.fromResource(resource));
         if (isPatch) {
             return UpdateControl.patchStatus(resource).rescheduleAfter(nextDelay, TimeUnit.SECONDS);
