@@ -165,7 +165,7 @@ class CoreReconcilerTest {
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
         maas.setSubKind("TopicTemplate");
         Map<String, String> labels = new HashMap<>();
-        labels.put(SESSION_ID_LABEL, "test-sessionId");
+        labels.put(SESSION_ID_LABEL, "sessionId");
         ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 1L, labels, null, "maasName", "namespace", null, "0", "", "uid");
         maas.setMetadata(meta);
 
