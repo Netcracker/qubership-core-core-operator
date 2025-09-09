@@ -38,8 +38,16 @@ public class DeclarativeStatus extends ObservedGenerationAwareStatus {
         return this.additionalProperties;
     }
 
+    public String getAdditionalPropertyAsString(String name) {
+        return (String) this.additionalProperties.get(name);
+    }
+
     @JsonAnySetter
     public void setAdditionalProperty(String name, Object value) {
         this.additionalProperties.put(name, value);
+    }
+
+    public void removeAdditionalProperty(String name) {
+        this.additionalProperties.remove(name);
     }
 }
