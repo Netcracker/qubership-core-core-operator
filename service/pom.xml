@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <artifactId>core-operator-parent</artifactId>
-        <groupId>org.qubership.core</groupId>
+        <groupId>com.netcracker.core</groupId>
         <version>2.0.2-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -72,14 +72,14 @@
         </dependency>
         <!-- NC Depends -->
         <dependency>
-            <groupId>org.qubership.cloud</groupId>
+            <groupId>com.netcracker.cloud</groupId>
             <artifactId>core-error-handling-rest</artifactId>
-            <version>3.1.2</version>
+            <version>3.1.3-SNAPSHOT</version>
         </dependency>
         <dependency>
-            <groupId>org.qubership.cloud.quarkus</groupId>
+            <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>7.1.1</version>
+            <version>7.1.2-SNAPSHOT</version>
         </dependency>
         <!-- Other -->
         <dependency>
@@ -141,7 +141,7 @@
             <plugin>
                 <groupId>io.smallrye</groupId>
                 <artifactId>jandex-maven-plugin</artifactId>
-                <version>3.2.6</version>
+                <version>3.2.7</version>
                 <executions>
                     <execution>
                         <id>make-index</id>
