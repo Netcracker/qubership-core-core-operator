@@ -79,7 +79,7 @@
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>7.1.2-SNAPSHOT</version>
+            <version>7.1.4-SNAPSHOT</version>
         </dependency>
         <!-- Other -->
         <dependency>
