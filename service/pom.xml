@@ -79,7 +79,7 @@
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>7.1.2-SNAPSHOT</version>
+            <version>7.1.4-SNAPSHOT</version>
         </dependency>
         <!-- Other -->
         <dependency>
@@ -141,7 +141,7 @@
             <plugin>
                 <groupId>io.smallrye</groupId>
                 <artifactId>jandex-maven-plugin</artifactId>
-                <version>3.2.6</version>
+                <version>3.2.7</version>
                 <executions>
                     <execution>
                         <id>make-index</id>
