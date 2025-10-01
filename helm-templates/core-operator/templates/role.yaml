@@ -7,10 +7,10 @@ metadata:
     deployer.cleanup/allow: "true"
     app.kubernetes.io/part-of: 'Cloud-Core'
     app.kubernetes.io/managed-by: 'saasDeployer'
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 rules:
 - apiGroups:
-  - core.qubership.org
+  - core.netcracker.com
   resources:
   - '*'
   verbs:
