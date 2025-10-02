@@ -152,7 +152,7 @@ public class Configuration {
     @DefaultBean
     @ApplicationScoped
     public List<String> sessionIdLabels() {
-        return List.of("deployment.qubership.org/sessionId");
+        return List.of("deployment.netcracker.com/sessionId");
     }
 
     public interface RestClientCustomizer {
