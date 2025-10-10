@@ -37,9 +37,7 @@ import static org.mockito.Mockito.*;
 
 @QuarkusTest
 class CoreReconcilerTest {
-    private static final String SESSION_ID_LABEL = "deployment.qubership.org/sessionId";
-    private static final String NAME_LABEL = "app.kubernetes.io/name";
-    private static final String OLD_LABEL = "app.kubernetes.io/instance";
+    private static final String SESSION_ID_LABEL = "deployment.netcracker.com/sessionId";
     @InjectSpy
     MaaSReconciler maaSReconciler;
 
@@ -132,7 +130,7 @@ class CoreReconcilerTest {
     }
 
     @Test
-    void labelFallbackTest() throws Exception {
+    void labelFallbackTest() {
         //1. test new label
         Maas maas = new Maas();
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
@@ -144,7 +142,7 @@ class CoreReconcilerTest {
         maas.setMetadata(meta);
 
         DeclarativeRequest declarativeRequest = maaSReconciler.declarativeRequestBuilder(maas);
-        assertEquals(declarativeRequest.getMetadata().get("microserviceName"), "nameLabel");
+        assertEquals("nameLabel", declarativeRequest.getMetadata().get("microserviceName"));
 
         //2. test old label
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
@@ -156,7 +154,7 @@ class CoreReconcilerTest {
         maas.setMetadata(oldMeta);
 
         declarativeRequest = maaSReconciler.declarativeRequestBuilder(maas);
-        assertEquals(declarativeRequest.getMetadata().get("microserviceName"), "nameLabel");
+        assertEquals("nameLabel", declarativeRequest.getMetadata().get("microserviceName"));
     }
 
     @Test
@@ -274,7 +272,7 @@ class CoreReconcilerTest {
     }
 
     @Test
-    void addOrUpdateConditionTest() throws Exception {
+    void addOrUpdateConditionTest() {
         //1. Add new Condition to empty list of conditions
         HashMap<String, CoreCondition> conditions = new HashMap<>();
         Condition condition = new Condition("ConditionType", COMPLETED, "reson", "message");
@@ -419,7 +417,7 @@ class CoreReconcilerTest {
     }
 
     @Test
-    void buildConditionMultipleErrors() throws Exception {
+    void buildConditionMultipleErrors() {
         doNothing().when(maaSReconciler).fireEvent(any(), any(), any());
 
         Maas maas = new Maas();
@@ -434,7 +432,7 @@ class CoreReconcilerTest {
         TmfErrorResponse tmfErrorResponse1 = new TmfErrorResponse("errorId", "referenceError", "errorCode", "reason", "detail", "500", null, new HashMap<>(), Collections.emptyList(), "type", "schemaLocation");
         maaSReconciler.buildCondition(maas, tmfErrorResponse1);
         TmfErrorResponse tmfErrorResponse2 = new TmfErrorResponse("errorId1", "referenceError1", "errorCode1", "reason1", "detail1", "501", null, new HashMap<>(), Collections.emptyList(), "type", "schemaLocation");
-        maaSReconciler.buildCondition(maas, tmfErrorResponse1);
+        maaSReconciler.buildCondition(maas, tmfErrorResponse2);
         assertEquals(1, maas.getStatus().getConditions().size());
         assertNotNull(maas.getStatus().getConditions().get(TYPE_UNKNOWN));
 
@@ -451,7 +449,7 @@ class CoreReconcilerTest {
     }
 
     @Test
-    void buildConditionDeclarativeResponseTest() throws Exception {
+    void buildConditionDeclarativeResponseTest() {
         doNothing().when(maaSReconciler).fireEvent(any(), any(), any());
 
         Maas maas = new Maas();
@@ -482,7 +480,7 @@ class CoreReconcilerTest {
     }
 
     @Test
-    void buildConditionUnknown() throws Exception {
+    void buildConditionUnknown() {
         Maas maas = new Maas();
         maas.setSubKind("TopicTemplate");
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
@@ -491,7 +489,7 @@ class CoreReconcilerTest {
     }
 
     @Test
-    void errorHandlerTest() throws Exception {
+    void errorHandlerTest() {
         Maas maas = new Maas();
         maas.setSubKind("TopicTemplate");
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));

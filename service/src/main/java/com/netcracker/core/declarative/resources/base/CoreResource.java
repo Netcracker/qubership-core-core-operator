@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @Getter
 public class CoreResource extends CustomResource<RawExtension, DeclarativeStatus> implements Namespaced {
-    public static final String GROUP = "core.qubership.org";
+    public static final String GROUP = "core.netcracker.com";
     public static final String VERSION = "v1";
 
     private String subKind;
