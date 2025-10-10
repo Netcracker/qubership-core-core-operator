@@ -44,7 +44,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String EVENT = "Event";
     private static final String DEFAULT_API_VERSION = "1";
     private static final String PROCESSED_BY_OPERATOR_VER_PROPERTY = "processed-by-operator-ver";
-    private static final String SESSION_ID_LABEL_KEY = "deployment.qubership.org/sessionId";
+    private static final String SESSION_ID_LABEL_KEY = "deployment.netcracker.com/sessionId";
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
     protected DeclarativeKubernetesClient client;
