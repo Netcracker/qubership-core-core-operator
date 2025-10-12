@@ -11,11 +11,11 @@
     <artifactId>core-operator</artifactId>
 
     <properties>
-        <compiler-plugin.version>3.14.0</compiler-plugin.version>
+        <compiler-plugin.version>3.14.1</compiler-plugin.version>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.20.2.2</quarkus.platform.version>
-        <jacoco.plugin.version>0.8.13</jacoco.plugin.version>
+        <jacoco.plugin.version>0.8.14</jacoco.plugin.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
@@ -74,12 +74,12 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>core-error-handling-rest</artifactId>
-            <version>3.2.0</version>
+            <version>3.2.1</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>7.2.0</version>
+            <version>7.2.1</version>
         </dependency>
         <!-- Other -->
         <dependency>
@@ -90,7 +90,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.38</version>
+            <version>1.18.40</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
