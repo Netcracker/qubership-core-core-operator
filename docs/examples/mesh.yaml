@@ -1,5 +1,5 @@
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -28,7 +28,7 @@ spec:
                   prefix: /api/v4/tenant-manager/public-api
                 prefixRewrite: /api/v4/api
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -57,7 +57,7 @@ spec:
                   prefix: /api/v4/tenant-manager/public-api
                 prefixRewrite: /api/v4/api
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: Cluster
 metadata:
@@ -79,7 +79,7 @@ spec:
     threshold:
       maxConnections: 1
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: LoadBalance
 metadata:
@@ -101,7 +101,7 @@ spec:
         name: "JSESSION"
         ttl: 5
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: HttpFilters
 metadata:
@@ -123,7 +123,7 @@ spec:
       cluster: ${ENV_SERVICE_NAME}
       endpoint: ${ENV_DEPLOYMENT_RESOURCE_NAME}:10050
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: HttpFiltersDrop
 metadata:
@@ -140,7 +140,7 @@ spec:
   extAuthzFilter:
     name: myExtAuthzFilter # unique name of extauthz filter for your ingress gateway
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RateLimit
 metadata:
@@ -156,7 +156,7 @@ spec:
   priority: PROJECT
   limitRequestPerSecond: 100
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: VirtualService
 metadata:
@@ -180,7 +180,7 @@ spec:
               prefix: /api/v4/tenant-manager/tenants
             prefixRewrite: /api/v4/tenants
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RoutesDrop
 metadata:
@@ -199,7 +199,7 @@ spec:
       routes:
         - prefix: /test-route-1
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: StatefulSession
 metadata:
@@ -223,7 +223,7 @@ spec:
     ttl: 0
     path: /
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: TlsDef
 metadata:

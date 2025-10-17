@@ -30,9 +30,6 @@ import static com.netcracker.core.declarative.client.reconciler.CompositeReconci
 
 @Slf4j
 public class Configuration {
-    public static final String REST_CLIENT_CUSTOMIZER = "restClientCustomizer";
-    public static final String SESSION_ID_LABELS = "sessionIdLabels";
-
     @Produces
     @Named("maasDeclarativeClient")
     @ApplicationScoped
@@ -145,14 +142,6 @@ public class Configuration {
     @ApplicationScoped
     public RestClientCustomizer restClientCustomizer() {
         return builder -> builder;
-    }
-
-    @Produces
-    @Named(SESSION_ID_LABELS)
-    @DefaultBean
-    @ApplicationScoped
-    public List<String> sessionIdLabels() {
-        return List.of("deployment.qubership.org/sessionId");
     }
 
     public interface RestClientCustomizer {
