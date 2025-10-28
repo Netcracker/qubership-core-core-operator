@@ -1,4 +1,4 @@
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: DBaaS
 subKind: DbPolicy
 metadata:
@@ -30,7 +30,7 @@ spec:
       defaultRole: admin
       additionalRole: []
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: DBaaS
 subKind: DatabaseDeclaration
 metadata:

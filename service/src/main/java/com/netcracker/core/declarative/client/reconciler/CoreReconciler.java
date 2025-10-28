@@ -44,6 +44,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String EVENT = "Event";
     private static final String DEFAULT_API_VERSION = "1";
     private static final String PROCESSED_BY_OPERATOR_VER_PROPERTY = "processed-by-operator-ver";
+    private static final String SESSION_ID_LABEL_KEY = "deployment.netcracker.com/sessionId";
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
     protected DeclarativeKubernetesClient client;
@@ -51,9 +52,6 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     protected RetryResourceCache retryResourceCache;
     @Inject
     protected ObjectMapper objectMapper;
-    @Inject
-    @Named(Configuration.SESSION_ID_LABELS)
-    protected List<String> sessionIdLabels;
 
     @ConfigProperty(name = "DEPLOYMENT_SESSION_ID")
     protected String deploymentSessionId;
@@ -196,7 +194,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
             labels.put("app.kubernetes.io/processed-by-operator", REPORTING_INSTANCE);
             labels.put("app.kubernetes.io/part-of", "Cloud-Core");
             labels.put(X_REQUEST_ID, resource.getStatus().getRequestId());
-            sessionIdLabels.forEach(sessionId -> labels.put(sessionId, getSessionIdLabel(resource)));
+            labels.put(SESSION_ID_LABEL_KEY, getSessionIdLabel(resource));
             ObjectMeta metadata = new ObjectMetaBuilder()
                     .withName(resource.getMetadata().getName() + "-" + resource.getMetadata().getUid() + "." + UUID.randomUUID())
                     .withLabels(labels)
@@ -374,11 +372,11 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     private String getSessionIdLabel(T resource) {
-        return sessionIdLabels.stream()
-                .map(sessionIdLabel -> resource.getMetadata().getLabels().get(sessionIdLabel))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse("");
+        String result = resource.getMetadata().getLabels().get(SESSION_ID_LABEL_KEY);
+        if (result == null) {
+            return "";
+        }
+        return result;
     }
 
     /**
