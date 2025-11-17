@@ -14,7 +14,7 @@
         <compiler-plugin.version>3.14.1</compiler-plugin.version>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.20.3</quarkus.platform.version>
+        <quarkus.platform.version>3.27.0</quarkus.platform.version>
         <jacoco.plugin.version>0.8.14</jacoco.plugin.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
@@ -99,7 +99,7 @@
         <dependency>
             <groupId>io.smallrye</groupId>
             <artifactId>jandex</artifactId>
-            <version>3.3.0</version>
+            <version>3.4.0</version>
         </dependency>
         <!-- Test -->
         <dependency>
