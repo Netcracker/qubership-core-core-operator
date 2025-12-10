@@ -7,4 +7,6 @@ public interface CompositeConsulUpdater {
     void updateCompositeStructureInConsul(CompositeSpec compositeSpec) throws ExecutionException, InterruptedException;
 
     Set<String> getCompositeMembers(String compositeId) throws ExecutionException, InterruptedException;
+
+    void setNamespace(String namespace);
 }

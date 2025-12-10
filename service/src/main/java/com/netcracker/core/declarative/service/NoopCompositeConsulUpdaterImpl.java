@@ -15,4 +15,9 @@ public class NoopCompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     public Set<String> getCompositeMembers(String compositeId) {
         throw new NoopConsulException();
     }
+
+    @Override
+    public void setNamespace(String namespace) {
+        throw new NoopConsulException();
+    }
 }
