@@ -2,14 +2,22 @@ package com.netcracker.core.declarative.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
 
-public record CompositeSpec(
-        String controllerNamespace,
-        String originNamespace,
-        String peerNamespace,
-        @JsonProperty("baseline") CompositeSpecBaseline baseline) {
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public final class CompositeSpec {
+    private String controllerNamespace;
+    private String originNamespace;
+    private String peerNamespace;
+    @JsonProperty("baseline")
+    private CompositeSpecBaseline baseline;
+
     public void validate() {
         if (isNullOrEmpty(originNamespace)) {
             throw new IllegalArgumentException("Origin namespace cannot be null or empty: " + this);
@@ -51,9 +59,12 @@ public record CompositeSpec(
         return baseline == null || isNullOrEmpty(baseline.originNamespace);
     }
 
-    public record CompositeSpecBaseline(
-            String controllerNamespace,
-            String originNamespace,
-            String peerNamespace) {
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static final class CompositeSpecBaseline {
+        private String controllerNamespace;
+        private String originNamespace;
+        private String peerNamespace;
     }
 }

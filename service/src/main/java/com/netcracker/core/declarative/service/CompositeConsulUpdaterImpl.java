@@ -40,28 +40,28 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
         String compositeDefinitionRoot = COMPOSITE_STRUCTURE_BASE_PATH_TEMPLATE.formatted(compositeId);
 
         TxnRequest request = new TxnRequest();
-        cleanUp(compositeSpec.getCompositeId(), compositeSpec.originNamespace()).forEach(request::addOperation);
+        cleanUp(compositeSpec.getCompositeId(), compositeSpec.getOriginNamespace()).forEach(request::addOperation);
         TxnKVOperation compositeRefOp = new TxnKVOperation()
                 .setKey(COMPOSITE_REF_ROLE_BASE_PATH_TEMPLATE.formatted(namespace))
                 .setValue(compositeDefinitionRoot)
                 .setType(TxnKVVerb.SET);
         request.addOperation(compositeRefOp);
-        boolean isBlueGreen = StringUtils.isNotEmpty(compositeSpec.controllerNamespace());
+        boolean isBlueGreen = StringUtils.isNotEmpty(compositeSpec.getControllerNamespace());
 
         if (isBlueGreen) {
             // BC
-            request.addOperation(writeBlueGreenRole(compositeId, compositeSpec.controllerNamespace(), BLUE_GREEN_ROLE_CONTROLLER));
-            request.addOperation(writeCompositeRole(compositeId, compositeSpec.controllerNamespace(), isBaseline));
+            request.addOperation(writeBlueGreenRole(compositeId, compositeSpec.getControllerNamespace(), BLUE_GREEN_ROLE_CONTROLLER));
+            request.addOperation(writeCompositeRole(compositeId, compositeSpec.getControllerNamespace(), isBaseline));
 
             // BO
-            request.addOperation(writeBlueGreenRole(compositeId, compositeSpec.originNamespace(), BLUE_GREEN_ROLE_ORIGIN));
-            request.addOperation(writeCompositeRole(compositeId, compositeSpec.originNamespace(), isBaseline));
-            request.addOperation(writeControllerNamespace(compositeId, compositeSpec.originNamespace(), compositeSpec.controllerNamespace()));
+            request.addOperation(writeBlueGreenRole(compositeId, compositeSpec.getOriginNamespace(), BLUE_GREEN_ROLE_ORIGIN));
+            request.addOperation(writeCompositeRole(compositeId, compositeSpec.getOriginNamespace(), isBaseline));
+            request.addOperation(writeControllerNamespace(compositeId, compositeSpec.getOriginNamespace(), compositeSpec.getControllerNamespace()));
 
             // BP
-            request.addOperation(writeBlueGreenRole(compositeId, compositeSpec.peerNamespace(), BLUE_GREEN_ROLE_PEER));
-            request.addOperation(writeCompositeRole(compositeId, compositeSpec.peerNamespace(), isBaseline));
-            request.addOperation(writeControllerNamespace(compositeId, compositeSpec.peerNamespace(), compositeSpec.controllerNamespace()));
+            request.addOperation(writeBlueGreenRole(compositeId, compositeSpec.getPeerNamespace(), BLUE_GREEN_ROLE_PEER));
+            request.addOperation(writeCompositeRole(compositeId, compositeSpec.getPeerNamespace(), isBaseline));
+            request.addOperation(writeControllerNamespace(compositeId, compositeSpec.getPeerNamespace(), compositeSpec.getControllerNamespace()));
         } else {
             request.addOperation(writeCompositeRole(compositeId, namespace, isBaseline));
         }
