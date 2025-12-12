@@ -125,7 +125,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
                     .findFirst()
                     .ifPresent(value -> {
                                 toDelete.add(new TxnKVOperation()
-                                        .setKey(COMPOSITE_STRUCTURE_NAMESPACE_BASE_PATH_TEMPLATE.formatted(compositeId, value.getValue()))
+                                        .setKey(normalize(COMPOSITE_STRUCTURE_NAMESPACE_BASE_PATH_TEMPLATE.formatted(compositeId, value.getValue())))
                                         .setType(TxnKVVerb.DELETE_TREE));
                                 toDelete.addAll(struct.stream()
                                         .filter(keyValue -> keyValue.getKey().endsWith(CONTROLLER_NAMESPACE_KEY))

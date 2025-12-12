@@ -58,9 +58,9 @@ class CompositeConsulUpdaterImplTest {
         verify(consulClient).transaction(txnRequestArgumentCaptor.capture());
         List<TxnOperation> operations = txnRequestArgumentCaptor.getValue().getOperations();
         verifyConsulKeyDeleteTxn(operations, List.of(
-                "composite/%s/structure/%s".formatted("BO", "BC"),
-                "composite/%s/structure/%s".formatted("BO", "BO"),
-                "composite/%s/structure/%s".formatted("BO", "BP")
+                "composite/%s/structure/%s/".formatted("BO", "BC"),
+                "composite/%s/structure/%s/".formatted("BO", "BO"),
+                "composite/%s/structure/%s/".formatted("BO", "BP")
         ));
     }
 
@@ -93,9 +93,9 @@ class CompositeConsulUpdaterImplTest {
         verify(consulClient).transaction(txnRequestArgumentCaptor.capture());
         List<TxnOperation> operations = txnRequestArgumentCaptor.getValue().getOperations();
         verifyConsulKeyDeleteTxn(operations, List.of(
-                "composite/%s/structure/%s".formatted("BO", "SC"),
-                "composite/%s/structure/%s".formatted("BO", "SO"),
-                "composite/%s/structure/%s".formatted("BO", "SP")
+                "composite/%s/structure/%s/".formatted("BO", "SC"),
+                "composite/%s/structure/%s/".formatted("BO", "SO"),
+                "composite/%s/structure/%s/".formatted("BO", "SP")
         ));
     }
 
