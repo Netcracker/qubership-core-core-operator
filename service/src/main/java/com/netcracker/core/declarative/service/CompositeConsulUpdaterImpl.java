@@ -35,6 +35,11 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
 
     @Override
     public void updateCompositeStructureInConsul(CompositeSpec compositeSpec) throws ExecutionException, InterruptedException {
+        updateCompositeStructureInConsul(namespace, compositeSpec);
+    }
+
+    @Override
+    public void updateCompositeStructureInConsul(String namespace, CompositeSpec compositeSpec) throws ExecutionException, InterruptedException {
         boolean isBaseline = compositeSpec.isBaseline();
         String compositeId = compositeSpec.getCompositeId();
         String compositeDefinitionRoot = COMPOSITE_STRUCTURE_BASE_PATH_TEMPLATE.formatted(compositeId);
@@ -112,7 +117,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
                     .filter(keyValue -> keyValue.getKey().equals(COMPOSITE_ROLE_BASE_PATH_TEMPLATE.formatted(compositeId, originNamespace)))
                     .findFirst()
                     .ifPresent(keyValue -> toDelete.add(new TxnKVOperation()
-                            .setKey(Paths.get(keyValue.getKey()).getParent().toString().replace("\\", "/"))
+                            .setKey(normalize(Paths.get(keyValue.getKey()).getParent().toString().replace("\\", "/")))
                             .setType(TxnKVVerb.DELETE_TREE)));
 
             struct.stream()
@@ -120,12 +125,13 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
                     .findFirst()
                     .ifPresent(value -> {
                                 toDelete.add(new TxnKVOperation()
-                                        .setKey(COMPOSITE_STRUCTURE_NAMESPACE_BASE_PATH_TEMPLATE.formatted(compositeId, value.getValue()))
+                                        .setKey(normalize(COMPOSITE_STRUCTURE_NAMESPACE_BASE_PATH_TEMPLATE.formatted(compositeId, value.getValue())))
                                         .setType(TxnKVVerb.DELETE_TREE));
                                 toDelete.addAll(struct.stream()
                                         .filter(keyValue -> keyValue.getKey().endsWith(CONTROLLER_NAMESPACE_KEY))
                                         .filter(keyValue -> keyValue.getValue().equals(value.getValue()))
                                         .map(keyValue -> Paths.get(keyValue.getKey()).getParent().toString().replace("\\", "/"))
+                                        .map(this::normalize)
                                         .map(p -> new TxnKVOperation().setKey(p).setType(TxnKVVerb.DELETE_TREE))
                                         .collect(Collectors.toSet()));
                             }
@@ -160,5 +166,12 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
                 .setKey(CONTROLLER_NAMESPACE_BASE_PATH_TEMPLATE.formatted(compositeId, namespace))
                 .setValue(controllerNamespace)
                 .setType(TxnKVVerb.SET);
+    }
+
+    private String normalize(String path) {
+        if (!path.endsWith("/")) {
+            return path + "/";
+        }
+        return path;
     }
 }
