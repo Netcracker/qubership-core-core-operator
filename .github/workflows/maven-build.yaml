@@ -14,7 +14,7 @@ on:
 jobs:
   build-java-service:
     name: Build java service
-    uses: Netcracker/qubership-core-infra/.github/workflows/generic-build-maven-service.yaml@v1.1.2
+    uses: Netcracker/qubership-core-infra/.github/workflows/generic-build-maven-service.yaml@v1.2.0
     with:
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
