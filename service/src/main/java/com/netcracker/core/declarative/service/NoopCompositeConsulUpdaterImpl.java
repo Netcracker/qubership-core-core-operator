@@ -3,6 +3,7 @@ package com.netcracker.core.declarative.service;
 import com.netcracker.core.declarative.exception.NoopConsulException;
 
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 public class NoopCompositeConsulUpdaterImpl implements CompositeConsulUpdater {
 
@@ -12,12 +13,13 @@ public class NoopCompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     }
 
     @Override
-    public Set<String> getCompositeMembers(String compositeId) {
+    public void updateCompositeStructureInConsul(String namespace, CompositeSpec compositeSpec) throws ExecutionException, InterruptedException {
         throw new NoopConsulException();
     }
 
     @Override
-    public void setNamespace(String namespace) {
+    public Set<String> getCompositeMembers(String compositeId) {
         throw new NoopConsulException();
     }
+
 }
