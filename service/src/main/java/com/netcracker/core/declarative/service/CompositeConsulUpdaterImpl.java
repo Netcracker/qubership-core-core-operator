@@ -29,7 +29,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     private static final String BLUE_GREEN_ROLE_ORIGIN = "origin";
     private static final String BLUE_GREEN_ROLE_PEER = "peer";
 
-    private String namespace;
+    private final String namespace;
     private final ConsulClientFactory consulClientFactory;
     private final TokenStorage consulTokenStorage;
 
