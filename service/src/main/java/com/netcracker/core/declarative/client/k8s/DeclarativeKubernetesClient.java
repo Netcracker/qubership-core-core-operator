@@ -9,7 +9,6 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 
 public class DeclarativeKubernetesClient {
-
     final KubernetesClient client;
 
     public DeclarativeKubernetesClient(KubernetesClient client) {
