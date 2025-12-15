@@ -8,6 +8,10 @@ run-name: >
 
 on:
   push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
   pull_request:
     types: [ opened, synchronize, reopened ]
 
