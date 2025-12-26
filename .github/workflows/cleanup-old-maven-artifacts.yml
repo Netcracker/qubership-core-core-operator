@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run Maven Cleanup Action
-        uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@v2.0.5
+        uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@v2.0.6
         with:
           threshold-days: ${{ github.event.inputs.threshold-days || 14 }}
           included-patterns: ${{ github.event.inputs.included-patterns || '*SNAPSHOT' }}
