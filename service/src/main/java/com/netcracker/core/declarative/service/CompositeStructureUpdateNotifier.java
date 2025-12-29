@@ -23,8 +23,8 @@ public class CompositeStructureUpdateNotifier {
     private final String xaasName;
     private final CompositeClient compositeClient;
 
-    public void notify(String compositeId, Set<String> compositeMembers) {
-        CompositeClient.Request compositeStructure = new CompositeClient.Request(compositeId, compositeMembers);
+    public void notify(String compositeId, Set<String> compositeMembers, long index) {
+        CompositeClient.Request compositeStructure = new CompositeClient.Request(compositeId, compositeMembers, index);
         log.info("Send request to {} with composite structure {}", xaasName, compositeStructure);
         try (jakarta.ws.rs.core.Response response = compositeClient.structures(compositeStructure)) {
             if (response.getStatusInfo().getStatusCode() == SC_NO_CONTENT) {

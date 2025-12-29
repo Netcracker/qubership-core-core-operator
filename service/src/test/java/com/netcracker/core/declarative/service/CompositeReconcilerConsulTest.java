@@ -1,12 +1,11 @@
 package com.netcracker.core.declarative.service;
 
 import com.netcracker.core.declarative.ConsulTestResource;
+import com.netcracker.core.declarative.model.CompositeMembersList;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
-
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,15 +19,15 @@ public class CompositeReconcilerConsulTest {
     @Test
     public void deleteSubTree() throws Exception {
         compositeConsulUpdater.updateCompositeStructureInConsul("test-namespace-baseline", new CompositeSpec("", "test-namespace-baseline", "", null));
-        Set<String> compositeMembers = compositeConsulUpdater.getCompositeMembers("test-namespace-baseline");
-        assertTrue(compositeMembers.contains("test-namespace-baseline"));
+        CompositeMembersList compositeMembers = compositeConsulUpdater.getCompositeMembers("test-namespace-baseline");
+        assertTrue(compositeMembers.members().contains("test-namespace-baseline"));
 
         compositeConsulUpdater.updateCompositeStructureInConsul("test-namespace", new CompositeSpec("", "test-namespace", "", new CompositeSpec.CompositeSpecBaseline("", "test-namespace-baseline", "")));
         compositeMembers = compositeConsulUpdater.getCompositeMembers("test-namespace-baseline");
-        assertTrue(compositeMembers.contains("test-namespace-baseline"));
+        assertTrue(compositeMembers.members().contains("test-namespace-baseline"));
 
         compositeConsulUpdater.updateCompositeStructureInConsul("test-namespace", new CompositeSpec("", "test-namespace", "", new CompositeSpec.CompositeSpecBaseline("", "test-namespace-baseline", "")));
         compositeMembers = compositeConsulUpdater.getCompositeMembers("test-namespace-baseline");
-        assertTrue(compositeMembers.contains("test-namespace-baseline"));
+        assertTrue(compositeMembers.members().contains("test-namespace-baseline"));
     }
 }
