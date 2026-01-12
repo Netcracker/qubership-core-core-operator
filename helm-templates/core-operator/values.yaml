@@ -3,7 +3,6 @@ MONITORING_ENABLED: true
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 READONLY_CONTAINER_FILE_SYSTEM_ENABLED: false
 IMAGE_REPOSITORY: ''
-MEM_ARGS: 100
 
 # ============== SERVICE VARIABLES ============================
 LOG_LEVEL: "info"
