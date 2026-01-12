@@ -55,7 +55,7 @@ jobs:
         run: ct lint --chart-dirs helm-templates/core-operator --all
 
       - name: "Run helm lint"
-        run: helm lint helm-templates/core-operator
+        run: helm lint --set DEPLOYMENT_SESSION_ID=${$GITHUB_RUN_ID} helm-templates/core-operator
 
       - name: "Create kind cluster"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
@@ -63,4 +63,4 @@ jobs:
 
       - name: "Run chart-testing (install)"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
-        run: ct install --chart-dirs helm-templates/core-operator --all
+        run: ct install --chart-dirs helm-templates/core-operator --all --set DEPLOYMENT_SESSION_ID=${$GITHUB_RUN_ID}
