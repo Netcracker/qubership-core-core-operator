@@ -54,6 +54,9 @@ jobs:
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
         run: ct lint --chart-dirs helm-templates/core-operator --all
 
+      - name: "Run helm lint"
+        run: helm lint helm-templates/core-operator
+
       - name: "Create kind cluster"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
         uses: helm/kind-action@v1.13.0
