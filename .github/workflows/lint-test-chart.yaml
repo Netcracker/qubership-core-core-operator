@@ -6,13 +6,7 @@ on:
       - opened
       - synchronize
       - reopened
-  workflow_dispatch:
-    inputs:
-      lint-n-test:
-        type: boolean
-        default: false
-        required: false
-        description: Run lint and test charts
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -43,13 +37,10 @@ jobs:
         uses: helm/chart-testing-action@v2.8.0
 
       - name: "Run chart-testing (lint)"
-        if: github.event.pull_request || inputs.lint-n-test == true
         run: ct lint --chart-dirs helm-templates/core-operator --charts helm-templates/core-operator --debug --validate-maintainers false
 
       - name: "Create kind cluster"
-        if: github.event.pull_request || inputs.lint-n-test == true
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab  # v1.13.0
 
       - name: "Run chart-testing (install)"
-        if: github.event.pull_request || inputs.lint-n-test == true
         run: ct install --chart-dirs helm-templates/core-operator --all
