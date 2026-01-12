@@ -28,7 +28,18 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ int (divf (mulf (default 75 .Values.HPA_AVG_CPU_UTILIZATION_TARGET_PERCENT) (include "to_millicores" .Values.CPU_LIMIT)) (include "to_millicores" .Values.CPU_REQUEST)) }}
+{{- /* safe averageUtilization calculation: only divide when CPU_REQUEST/CPU_LIMIT present and request != 0 */ -}}
+{{- if and .Values.CPU_REQUEST .Values.CPU_LIMIT -}}
+  {{- $req := include "to_millicores" .Values.CPU_REQUEST | int -}}
+  {{- $lim := include "to_millicores" .Values.CPU_LIMIT | int -}}
+  {{- if ne $req 0 -}}
+          averageUtilization: {{ int (divf (mulf (default 75 .Values.HPA_AVG_CPU_UTILIZATION_TARGET_PERCENT) $lim) $req) }}
+  {{- else -}}
+          averageUtilization: {{ default 75 .Values.HPA_AVG_CPU_UTILIZATION_TARGET_PERCENT }}
+  {{- end -}}
+{{- else -}}
+          averageUtilization: {{ default 75 .Values.HPA_AVG_CPU_UTILIZATION_TARGET_PERCENT }}
+{{- end -}}
   behavior:
     scaleUp:
       stabilizationWindowSeconds: {{ default 0 .Values.HPA_SCALING_UP_STABILIZATION_WINDOW_SECONDS }}
