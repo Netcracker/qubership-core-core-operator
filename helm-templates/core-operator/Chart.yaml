@@ -4,10 +4,8 @@ description: Service chart for core-operator microservice
 name: core-operator
 version: 1.0.0
 maintainers:
-  - name: Jane Doe
-    email: jane.doe@example.com
-  - name: John Smith
-    email: john.smith@example.com
+  - name: borislavr
+    email: boris.lavrishchev.qubership@gmail.com
 dependencies:
   - name: coretpl
     version: "0.2.3"
