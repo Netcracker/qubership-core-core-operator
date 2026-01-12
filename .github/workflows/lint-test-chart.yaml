@@ -13,6 +13,8 @@ permissions:
 
 jobs:
   lint-test:
+    env:
+      CHARTS_TO_TEST: "helm-templates/core-operator"
     name: "Lint and Test Helm Charts"
     runs-on: ubuntu-latest
     steps:
@@ -37,19 +39,29 @@ jobs:
         uses: helm/chart-testing-action@v2.8.0
 
       - name: "Run chart-testing (list-changed)"
+        if: github.event_name == 'pull_request'
         id: list-changed
         run: |
-          changed=$(ct list-changed --target-branch ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }})
+          changed=$(ct list-changed --target-branch ${{ github.event.pull_request.base.ref }})
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: "Run chart-testing (lint)"
-        if: steps.list-changed.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
-        run: ct lint --chart-dirs=helm-templates/core-operator --debug --validate-maintainers=false --all
+      - name: "Run chart-testing (lint) on pull_request"
+        if: github.event_name == 'pull_request' && steps.list-changed.outputs.changed == 'true'
+        run: ct lint --chart-dirs=${CHARTS_TO_TEST} --charts=${CHARTS_TO_TEST} --debug --validate-maintainers=false --target-branch=${{ github.event.pull_request.base.ref }}
+
+      - name: "Run chart-testing (lint) on workflow_dispatch"
+        if: github.event_name == 'workflow_dispatch'
+        run: ct lint --chart-dirs=${CHARTS_TO_TEST} --charts=${CHARTS_TO_TEST} --debug --validate-maintainers=false --all
 
       - name: "Create kind cluster"
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab  # v1.13.0
 
-      - name: "Run chart-testing (install)"
-        run: ct install --chart-dirs=helm-templates/core-operator --all
+      - name: "Run chart-testing (install) on pull_request"
+        if: github.event_name == 'pull_request' && steps.list-changed.outputs.changed == 'true'
+        run: ct install --chart-dirs=${CHARTS_TO_TEST} --charts=${CHARTS_TO_TEST} --target-branch=${{ github.event.pull_request.base.ref }}
+
+      - name: "Run chart-testing (install) on workflow_dispatch"
+        if: github.event_name == 'workflow_dispatch'
+        run: ct install --chart-dirs=${CHARTS_TO_TEST} --charts=${CHARTS_TO_TEST} --all
