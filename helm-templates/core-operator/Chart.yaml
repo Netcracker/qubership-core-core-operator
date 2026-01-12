@@ -3,9 +3,9 @@ appVersion: "1.0.0"
 description: Service chart for core-operator microservice
 name: core-operator
 version: 1.0.0
-maintainers:
-  - name: borislavr
-    email: boris.lavrishchev.qubership@gmail.com
+# maintainers:
+#   - name: borislavr
+#     email: boris.lavrishchev.qubership@gmail.com
 dependencies:
   - name: coretpl
     version: "0.2.3"
