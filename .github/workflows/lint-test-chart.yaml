@@ -52,7 +52,7 @@ jobs:
 
       - name: "Run chart-testing (lint)"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
-        run: ct lint --target-branch ${{ github.event.repository.default_branch }}
+        run: ct lint --chart-dirs helm-templates/core-operator --all
 
       - name: "Create kind cluster"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
@@ -60,4 +60,4 @@ jobs:
 
       - name: "Run chart-testing (install)"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
-        run: ct install --target-branch ${{ github.event.repository.default_branch }}
+        run: ct install --chart-dirs helm-templates/core-operator --all
