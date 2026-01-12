@@ -36,11 +36,20 @@ jobs:
       - name: "Set up chart-testing"
         uses: helm/chart-testing-action@v2.8.0
 
+      - name: "Run chart-testing (list-changed)"
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --target-branch ${{ github.event.pull_request.base.ref }})
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: "Run chart-testing (lint)"
-        run: ct lint --chart-dirs helm-templates/core-operator --charts helm-templates/core-operator --debug --validate-maintainers=false
+        if: steps.list-changed.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: ct lint --chart-dirs=helm-templates/core-operator --debug --validate-maintainers=false --all
 
       - name: "Create kind cluster"
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab  # v1.13.0
 
       - name: "Run chart-testing (install)"
-        run: ct install --chart-dirs helm-templates/core-operator --all
+        run: ct install --chart-dirs=helm-templates/core-operator --all
