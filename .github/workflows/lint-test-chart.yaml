@@ -40,7 +40,7 @@ jobs:
           check-latest: true
 
       - name: "Set up chart-testing"
-        uses: helm/chart-testing-action@v2.8.0
+        uses: helm/chart-testing-action@2651b49048950c5473b1f533c900d17614bc6aa0  # v3.14.0
 
       - name: "Run chart-testing (list-changed)"
         id: list-changed
