@@ -52,7 +52,7 @@ jobs:
 
       - name: "Run chart-testing (lint)"
         if: steps.list-changed.outputs.changed == 'true' || inputs.lint-n-test == true
-        run: ct lint --chart-dirs helm-templates/core-operator --all
+        run: ct lint --chart-dirs helm-templates/core-operator --charts helm-templates/core-operator --debug
 
       - name: "Run helm lint"
         run: helm lint --set DEPLOYMENT_SESSION_ID=id_${GITHUB_RUN_ID} helm-templates/core-operator
