@@ -11,7 +11,6 @@
 {{- if hasSuffix $v "m" -}}
   {{- trimSuffix "m" $v | int -}}
 {{- else -}}
-  {{- $f := toFloat64 $v -}}
-  {{- int (mulf $f 1000) -}}
+  {{- int (mulf $v 1000) -}}
 {{- end -}}
 {{- end -}}
