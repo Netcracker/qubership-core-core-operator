@@ -18,7 +18,7 @@ public interface CompositeClient {
     record Request(
             String id,
             Set<String> namespaces,
-            long index
+            long modifyIndex
     ) {
     }
 

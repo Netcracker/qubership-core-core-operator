@@ -2,11 +2,11 @@ package com.netcracker.core.declarative.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.cloud.core.error.rest.tmf.DefaultTmfErrorResponseConverter;
+import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
 import com.netcracker.core.declarative.client.rest.CompositeClient;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import com.netcracker.cloud.core.error.rest.tmf.DefaultTmfErrorResponseConverter;
-import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,8 +23,8 @@ public class CompositeStructureUpdateNotifier {
     private final String xaasName;
     private final CompositeClient compositeClient;
 
-    public void notify(String compositeId, Set<String> compositeMembers, long index) {
-        CompositeClient.Request compositeStructure = new CompositeClient.Request(compositeId, compositeMembers, index);
+    public void notify(String compositeId, Set<String> compositeMembers, long modifyIndex) {
+        CompositeClient.Request compositeStructure = new CompositeClient.Request(compositeId, compositeMembers, modifyIndex);
         log.info("Send request to {} with composite structure {}", xaasName, compositeStructure);
         try (jakarta.ws.rs.core.Response response = compositeClient.structures(compositeStructure)) {
             if (response.getStatusInfo().getStatusCode() == SC_NO_CONTENT) {

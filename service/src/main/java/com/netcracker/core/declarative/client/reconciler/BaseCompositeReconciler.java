@@ -88,7 +88,7 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
 
             try {
                 log.info("Send composite structure to {}", step.getXaasName());
-                step.notify(compositeSpec.getCompositeId(), compositeMembersList.members(), compositeMembersList.index());
+                step.notify(compositeSpec.getCompositeId(), compositeMembersList.members(), compositeMembersList.modifyIndex());
                 completeStep(composite, stepId);
             } catch (Exception e) {
                 log.error("Notification failed for {}", step.getXaasName(), e);
