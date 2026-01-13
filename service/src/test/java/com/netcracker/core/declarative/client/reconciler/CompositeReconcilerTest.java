@@ -28,9 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class CompositeReconcilerTest {
 
@@ -69,6 +67,31 @@ class CompositeReconcilerTest {
     }
 
     @Test
+    void reconcileInternal_modify_index() throws Exception {
+        CompositeClient compositeClient = mock(CompositeClient.class);
+        when(compositeClient.structures(any())).thenReturn(Response.noContent().build());
+
+        CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
+        when(compositeConsulUpdater.getCompositeMembers(any())).thenReturn(new CompositeMembersList(123L, Set.of("ns-1", "ns-2")));
+
+        CompositeReconciler compositeReconciler = new CompositeReconciler(
+                mock(KubernetesClient.class),
+                compositeConsulUpdater,
+                List.of(
+                        new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient),
+                        new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
+                )
+        );
+
+        Composite composite = new Composite();
+        composite.setSpec(new RawExtension(new CompositeSpec("", "ns-1", "", null)));
+        compositeReconciler.reconcileInternal(composite);
+
+        verify(compositeClient, times(2)).structures(new CompositeClient.Request("ns-1", Set.of("ns-1", "ns-2"), 123L));
+
+    }
+
+        @Test
     void reconcileInternal_no_consul() throws Exception {
         KubernetesClient kubernetesClient = mock(KubernetesClient.class);
         NamespaceableResource namespaceableResource = mock(NamespaceableResource.class);
