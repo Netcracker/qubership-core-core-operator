@@ -32,6 +32,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
 
     private final String namespace;
     private final ConsulClientFactory consulClientFactory;
+    private final TokenStorage consulTokenStorage;
 
     @Override
     public void updateCompositeStructureInConsul(CompositeSpec compositeSpec) throws ExecutionException, InterruptedException {
@@ -72,7 +73,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
         }
 
         log.info("Update composite structure in consul by path: {}", compositeDefinitionRoot);
-        ConsulClient consulClient = consulClientFactory.create("");
+        ConsulClient consulClient = consulClientFactory.create(consulTokenStorage.get());
         try {
             TxnResponse result = consulClient.transaction(request).toCompletionStage().toCompletableFuture().get();
             if (!result.getErrors().isEmpty()) {
@@ -89,7 +90,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     public CompositeMembersList getCompositeMembers(String compositeId) throws ExecutionException, InterruptedException {
         String compositeDefinitionRoot = COMPOSITE_STRUCTURE_BASE_PATH_TEMPLATE.formatted(compositeId);
         log.info("Get updated composite structure from consul by path: {}", compositeDefinitionRoot);
-        ConsulClient consulClient = consulClientFactory.create("");
+        ConsulClient consulClient = consulClientFactory.create(consulTokenStorage.get());
         try {
             KeyValueList keyValueList = consulClient.getValues(compositeDefinitionRoot)
                     .toCompletionStage()
@@ -107,7 +108,7 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     }
 
     private Set<TxnOperation> cleanUp(String compositeId, String originNamespace) throws ExecutionException, InterruptedException {
-        ConsulClient consulClient = consulClientFactory.create("");
+        ConsulClient consulClient = consulClientFactory.create(consulTokenStorage.get());
         try {
             List<KeyValue> struct = consulClient
                     .getValues(COMPOSITE_STRUCTURE_BASE_PATH_TEMPLATE.formatted(compositeId)).toCompletionStage().toCompletableFuture().get().getList();
