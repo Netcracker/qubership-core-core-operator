@@ -78,7 +78,7 @@ public class TenantService {
     protected static Optional<String> getCompositeIdForMember(List<String> keys, String namespace) {
         return keys.stream()
                 .map(path -> path.split("/"))
-                .filter(chunks -> chunks.length > 2)
+                .filter(chunks -> chunks.length > 3)
                 .filter(chunks -> chunks[3].equals(namespace))
                 .findFirst()
                 .map(chunks -> chunks[1]);

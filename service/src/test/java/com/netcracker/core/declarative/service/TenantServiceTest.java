@@ -13,7 +13,9 @@ class TenantServiceTest {
     void getCompositeIdForMember() {
         List<String> composite = List.of(
                 "composite/first/structure/first",
-                "composite/first/structure/second"
+                "composite/first/structure/first/",
+                "composite/first/structure/second",
+                "composite/first/structure/second/"
         );
         assertEquals(Optional.of("first"), TenantService.getCompositeIdForMember(composite, "first"));
         assertEquals(Optional.of("first"), TenantService.getCompositeIdForMember(composite, "second"));
@@ -23,7 +25,10 @@ class TenantServiceTest {
     @Test
     void getCompositeIdForMember_InvalidFormat() {
         List<String> composite = List.of(
-                "composite/first"
+                "composite/first",
+                "composite/first/",
+                "composite/first/structure",
+                "composite/first/structure/"
         );
         assertEquals(Optional.empty(), TenantService.getCompositeIdForMember(composite, "wrong"));
     }
