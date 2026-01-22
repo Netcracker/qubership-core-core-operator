@@ -17,6 +17,8 @@ import java.time.Duration;
 @ApplicationScoped
 @Slf4j
 public final class ConsulClientWrapper implements ConsulClient {
+    private static final long DEFAULT_READ_TIMEOUT_MILLIS = Duration.ofMinutes(10).toMillis();
+
     private final ConsulClientFactory consulClientFactory;
     private final TokenStorage tokenStorage;
     private final long readTimeoutMillis;
@@ -26,7 +28,7 @@ public final class ConsulClientWrapper implements ConsulClient {
                                Instance<TokenStorage> tokenStorage) {
         this.consulClientFactory = consulClientFactory;
         this.tokenStorage = tokenStorage.get();
-        this.readTimeoutMillis = Duration.ofMinutes(10).toMillis();
+        this.readTimeoutMillis = DEFAULT_READ_TIMEOUT_MILLIS;
     }
 
     @Override
@@ -38,13 +40,18 @@ public final class ConsulClientWrapper implements ConsulClient {
         String token = tokenStorage.get();
         io.vertx.ext.consul.ConsulClient consulClient = consulClientFactory.create(token, readTimeoutMillis);
         log.debug("Await values from consul. path='{}', requestIndex={}, wait={}", path, index, wait);
-        consulClient.getValuesWithOptions(path, bq, ar -> {
-            try {
-                handle(path, handler, ar);
-            } finally {
-                consulClient.close();
-            }
-        });
+        try {
+            consulClient.getValuesWithOptions(path, bq, ar -> {
+                try {
+                    handle(path, handler, ar);
+                } finally {
+                    consulClient.close();
+                }
+            });
+        } catch (Exception e) {
+            consulClient.close();
+            throw e;
+        }
     }
 
     void handle(String path,
