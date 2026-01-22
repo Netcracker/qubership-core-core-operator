@@ -19,7 +19,6 @@ public class ConfigMapClient {
     public static final String LABEL_PART_OF = "app.kubernetes.io/part-of";
     public static final String LABEL_MANAGED_BY = "app.kubernetes.io/managed-by";
     public static final String MANAGED_BY_CORE_OPERATOR = "core-operator";
-    public static final String MANAGED_BY_TOPOLOGY_OPERATOR = "topology-operator";
 
     private final KubernetesClient client;
 
@@ -43,8 +42,8 @@ public class ConfigMapClient {
                 .get();
 
         if (!isManagedByCoreOperator(existingConfigMap)) {
-            log.info("Config map '{}' in namespace '{}' is managed by '{}'. Skipping update.",
-                    name, namespace, MANAGED_BY_TOPOLOGY_OPERATOR);
+            log.info("Config map '{}' in namespace '{}' is not managed by '{}'. Skipping update.",
+                    name, namespace, MANAGED_BY_CORE_OPERATOR);
             return;
         }
 
@@ -105,6 +104,6 @@ public class ConfigMapClient {
                 .map(ObjectMeta::getLabels)
                 .map(labels -> labels.get(LABEL_MANAGED_BY))
                 .orElse(null);
-        return !MANAGED_BY_TOPOLOGY_OPERATOR.equals(managedBy);
+        return MANAGED_BY_CORE_OPERATOR.equals(managedBy);
     }
 }
