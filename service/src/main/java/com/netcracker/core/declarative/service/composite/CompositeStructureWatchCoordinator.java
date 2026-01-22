@@ -16,48 +16,65 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Coordinates composite structure watching based on ConfigMap ownership.
+ * <p>
+ * Periodically checks if the {@value #CONFIG_MAP_NAME} ConfigMap is managed by core-operator.
+ * If managed, starts the {@link CompositeStructureWatcher}; otherwise stops it.
+ * This allows another operator to take over ConfigMap management when needed.
+ */
 @ApplicationScoped
 @Startup
 @Slf4j
 public class CompositeStructureWatchCoordinator {
     public static final String CONFIG_MAP_NAME = "composite-structure";
-    private static final Duration MANAGEMENT_CHECK_INTERVAL = Duration.ofMinutes(5);
+    private static final Duration CONFIG_MAP_MANAGEMENT_CHECK_INTERVAL = Duration.ofMinutes(5);
 
     private final CompositeStructureWatcher compositeStructureWatcher;
     private final ConfigMapClient configMapClient;
     private final String namespace;
     private final AtomicBoolean watcherRunning;
-    private final ScheduledExecutorService managementCheckExecutor;
+    private final ScheduledExecutorService configMapManagementCheckExecutor;
 
     @Inject
+    @SuppressWarnings("unused")
     public CompositeStructureWatchCoordinator(@ConfigProperty(name = "cloud.microservice.namespace") String namespace,
                                               ConsulClient consulClient,
                                               CompositeStructureSnapshotHandler compositeStructureHandler,
                                               ConfigMapClient configMapClient) {
+        this(namespace, configMapClient,
+                new CompositeStructureWatcher(namespace, consulClient, compositeStructureHandler),
+                Executors.newSingleThreadScheduledExecutor(r -> {
+                    Thread thread = new Thread(r, "composite-structure-configmap-check");
+                    thread.setDaemon(true);
+                    return thread;
+                }));
+    }
+
+    CompositeStructureWatchCoordinator(String namespace,
+                                       ConfigMapClient configMapClient,
+                                       CompositeStructureWatcher compositeStructureWatcher,
+                                       ScheduledExecutorService executor) {
         this.namespace = namespace;
         this.configMapClient = configMapClient;
-        this.compositeStructureWatcher = new CompositeStructureWatcher(namespace, consulClient, compositeStructureHandler);
+        this.compositeStructureWatcher = compositeStructureWatcher;
         this.watcherRunning = new AtomicBoolean(false);
-        this.managementCheckExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread thread = new Thread(r, "composite-structure-management-check");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.configMapManagementCheckExecutor = executor;
     }
 
     @PostConstruct
     void start() {
-        managementCheckExecutor.scheduleWithFixedDelay(
+        configMapManagementCheckExecutor.scheduleWithFixedDelay(
                 this::ensureWatcherState,
                 0,
-                MANAGEMENT_CHECK_INTERVAL.toMinutes(),
+                CONFIG_MAP_MANAGEMENT_CHECK_INTERVAL.toMinutes(),
                 TimeUnit.MINUTES
         );
     }
 
     @PreDestroy
     void stop() {
-        managementCheckExecutor.shutdownNow();
+        configMapManagementCheckExecutor.shutdownNow();
         stopWatcher();
     }
 
@@ -66,10 +83,10 @@ public class CompositeStructureWatchCoordinator {
             boolean shouldManage = configMapClient.isManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
             if (shouldManage) {
                 startWatcher();
-                return;
+            } else {
+                log.debug("Composite structure polling is disabled because '{}' is not managed by core-operator.", CONFIG_MAP_NAME);
+                stopWatcher();
             }
-            log.info("Composite structure polling is disabled because '{}' is no longer managed by core-operator.", CONFIG_MAP_NAME);
-            stopWatcher();
         } catch (RuntimeException ex) {
             log.warn("Failed to verify management state for '{}'. Retrying on next schedule.", CONFIG_MAP_NAME, ex);
         }
@@ -79,6 +96,7 @@ public class CompositeStructureWatchCoordinator {
         if (!watcherRunning.compareAndSet(false, true)) {
             return;
         }
+        log.info("Starting composite structure watcher for ConfigMap '{}'", CONFIG_MAP_NAME);
         compositeStructureWatcher.start();
     }
 

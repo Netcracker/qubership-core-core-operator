@@ -1,7 +1,5 @@
 package com.netcracker.core.declarative.service.composite.consul.model;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,9 +9,8 @@ import java.util.regex.Pattern;
 
 public class CompositeStructureSerializer {
     private static final Pattern STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/([^/]+)/([^/]+)$");
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public static CompositeStructurePayload toPayload(ConsulPrefixSnapshot consulPrefixSnapshot) {
+    public static CompositeStructure toPayload(ConsulPrefixSnapshot consulPrefixSnapshot) {
         LinkedHashMap<String, Namespace> namespaces = new LinkedHashMap<>();
 
         consulPrefixSnapshot.getKeySet().stream()
@@ -40,22 +37,13 @@ public class CompositeStructureSerializer {
                     }
                 });
 
-        return new CompositeStructurePayload(
+        return new CompositeStructure(
                 buildBaseline(namespaces.values()),
                 buildSatellites(namespaces.values())
         );
     }
 
-    public static String serialize(ConsulPrefixSnapshot consulPrefixSnapshot) {
-        CompositeStructurePayload payload = toPayload(consulPrefixSnapshot);
-        try {
-            return OBJECT_MAPPER.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
-            throw new ConsulSnapshotSerializationException("Failed to serialize composite structure", e);
-        }
-    }
-
-    private static NamespaceRolesPayload buildBaseline(Collection<Namespace> namespaces) {
+    private static NamespaceRoles buildBaseline(Collection<Namespace> namespaces) {
         List<Namespace> baselineNamespaces = namespaces.stream()
                 .filter(entry -> entry.getCompositeRole() == CompositeRole.BASELINE)
                 .toList();
@@ -63,14 +51,14 @@ public class CompositeStructureSerializer {
         return buildNamespaceRoles(baselineNamespaces);
     }
 
-    private static List<NamespaceRolesPayload> buildSatellites(Collection<Namespace> namespaces) {
+    private static List<NamespaceRoles> buildSatellites(Collection<Namespace> namespaces) {
         LinkedHashMap<String, List<Namespace>> satellites = new LinkedHashMap<>();
 
         namespaces.stream()
                 .filter(entry -> entry.getCompositeRole() == CompositeRole.SATELLITE)
                 .forEach(entry -> {
                     String satelliteKey = resolveSatelliteKey(entry);
-                    satellites.computeIfAbsent(satelliteKey, k -> new LinkedList<>()).add(entry);
+                    satellites.computeIfAbsent(satelliteKey, k -> new ArrayList<>()).add(entry);
                 });
 
         if (satellites.isEmpty()) {
@@ -96,7 +84,7 @@ public class CompositeStructureSerializer {
         return entry.getName();
     }
 
-    private static NamespaceRolesPayload buildNamespaceRoles(Collection<Namespace> namespaceEntries) {
+    private static NamespaceRoles buildNamespaceRoles(Collection<Namespace> namespaceEntries) {
         if (namespaceEntries.isEmpty()) {
             return null;
         }
@@ -118,7 +106,7 @@ public class CompositeStructureSerializer {
             return null;
         }
 
-        return new NamespaceRolesPayload(controller, origin, peer);
+        return new NamespaceRoles(controller, origin, peer);
     }
 
     private static String findNamespaceByBlueGreenRole(Collection<Namespace> namespaces, BlueGreenRole blueGreenRole) {
@@ -153,11 +141,27 @@ public class CompositeStructureSerializer {
         }
 
         void setCompositeRole(String value) {
-            compositeRole = CompositeRole.valueOf(value.toUpperCase());
+            if (value == null || value.isBlank()) {
+                return;
+            }
+            try {
+                compositeRole = CompositeRole.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new ConsulSnapshotSerializationException(
+                        "Invalid composite role: " + value, e);
+            }
         }
 
         void setBlueGreenRole(String value) {
-            blueGreenRole = BlueGreenRole.valueOf(value.toUpperCase());
+            if (value == null || value.isBlank()) {
+                return;
+            }
+            try {
+                blueGreenRole = BlueGreenRole.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new ConsulSnapshotSerializationException(
+                        "Invalid blue-green role: " + value, e);
+            }
         }
     }
 }
