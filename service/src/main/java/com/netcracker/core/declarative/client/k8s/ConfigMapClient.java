@@ -104,6 +104,9 @@ public class ConfigMapClient {
                 .map(ObjectMeta::getLabels)
                 .map(labels -> labels.get(LABEL_MANAGED_BY))
                 .orElse(null);
+        if (managedBy == null) {
+            return true;
+        }
         return MANAGED_BY_CORE_OPERATOR.equals(managedBy);
     }
 }
