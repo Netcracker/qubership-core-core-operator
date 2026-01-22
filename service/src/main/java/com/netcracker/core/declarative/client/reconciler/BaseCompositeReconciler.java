@@ -73,6 +73,7 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             } catch (InterruptedException e) {
                 throw e;
             } catch (Exception e) {
+                log.error("Consul update error", e);
                 return failStep(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME, "consul update error", e.getMessage());
             }
         }
