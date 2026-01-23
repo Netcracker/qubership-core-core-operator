@@ -10,6 +10,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Single-threaded scheduler for poll tasks. Ensures only one poll is pending at a time —
+ * scheduling a new task cancels the previous one.
+ */
 @Slf4j
 public final class PollScheduler {
     private static final String THREAD_NAME_TEMPLATE = "kv-poller-%s-%d";

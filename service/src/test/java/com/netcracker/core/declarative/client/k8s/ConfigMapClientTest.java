@@ -36,9 +36,8 @@ class ConfigMapClientTest {
 
         ConfigMapClient configMapClient = new ConfigMapClient(client);
         Map<String, String> data = Map.of("key", "value");
-        Map<String, String> labels = Map.of("custom", "label");
 
-        configMapClient.createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, data, labels);
+        configMapClient.createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, data);
 
         ConfigMap appliedConfigMap = applyResult.appliedConfigMapRef().get();
         assertNotNull(appliedConfigMap);
@@ -49,7 +48,6 @@ class ConfigMapClientTest {
         assertEquals("label", resultingLabels.get("existing"));
         assertEquals("Cloud-Core", resultingLabels.get("app.kubernetes.io/part-of"));
         assertEquals("core-operator", resultingLabels.get("app.kubernetes.io/managed-by"));
-        assertEquals("label", resultingLabels.get("custom"));
     }
 
     @Test
@@ -64,7 +62,7 @@ class ConfigMapClientTest {
         ApplyResult applyResult = prepareConfigMapMocks(client, existingConfigMap);
 
         ConfigMapClient configMapClient = new ConfigMapClient(client);
-        configMapClient.createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, Map.of("key", "value"), null);
+        configMapClient.createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, Map.of("key", "value"));
 
         assertFalse(applyResult.wasApplied().get());
     }

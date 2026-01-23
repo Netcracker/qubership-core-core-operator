@@ -14,6 +14,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 
+/**
+ * {@link ConsulClient} implementation backed by Vert.x consul client.
+ * Creates a short-lived Vert.x client per request, performs a blocking query (long-poll),
+ * and translates the async result into {@link PollResultHandler} callbacks.
+ */
 @ApplicationScoped
 @Slf4j
 public final class ConsulClientWrapper implements ConsulClient {
@@ -21,14 +26,12 @@ public final class ConsulClientWrapper implements ConsulClient {
 
     private final ConsulClientFactory consulClientFactory;
     private final TokenStorage tokenStorage;
-    private final long readTimeoutMillis;
 
     @Inject
     public ConsulClientWrapper(ConsulClientFactory consulClientFactory,
                                Instance<TokenStorage> tokenStorage) {
         this.consulClientFactory = consulClientFactory;
         this.tokenStorage = tokenStorage.get();
-        this.readTimeoutMillis = DEFAULT_READ_TIMEOUT_MILLIS;
     }
 
     @Override
@@ -38,7 +41,7 @@ public final class ConsulClientWrapper implements ConsulClient {
                 .setWait(format(wait));
 
         String token = tokenStorage.get();
-        io.vertx.ext.consul.ConsulClient consulClient = consulClientFactory.create(token, readTimeoutMillis);
+        io.vertx.ext.consul.ConsulClient consulClient = consulClientFactory.create(token, DEFAULT_READ_TIMEOUT_MILLIS);
         log.debug("Await values from consul. path='{}', requestIndex={}, wait={}", path, index, wait);
         try {
             consulClient.getValuesWithOptions(path, bq, ar -> {
@@ -63,8 +66,7 @@ public final class ConsulClientWrapper implements ConsulClient {
             handler.onSuccess(snapshot);
         } else {
             Throwable cause = ar.cause();
-            String reason = (cause != null ? cause.getMessage() : "unknown error");
-            log.debug("Consul long-poll failed: path='{}', reason='{}'", path, reason);
+            log.warn("Consul long-poll failed: path='{}'", path, cause);
             handler.onError(cause);
         }
     }

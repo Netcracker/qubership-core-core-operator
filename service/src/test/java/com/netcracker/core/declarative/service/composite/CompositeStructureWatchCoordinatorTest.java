@@ -40,27 +40,27 @@ class CompositeStructureWatchCoordinatorTest {
 
     @Test
     void startShouldStartWatcherWhenManagedByCoreOperator() {
-        when(configMapClient.isManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(true);
+        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(true);
 
         coordinator.start();
 
-        verify(configMapClient).isManagedByCoreOperator("composite-structure", NAMESPACE);
+        verify(configMapClient).shouldBeManagedByCoreOperator("composite-structure", NAMESPACE);
         verify(watcher).start();
     }
 
     @Test
     void startShouldNotStartWatcherWhenNotManagedByCoreOperator() {
-        when(configMapClient.isManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(false);
+        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(false);
 
         coordinator.start();
 
-        verify(configMapClient).isManagedByCoreOperator("composite-structure", NAMESPACE);
+        verify(configMapClient).shouldBeManagedByCoreOperator("composite-structure", NAMESPACE);
         verify(watcher, never()).start();
     }
 
     @Test
     void startShouldStopWatcherWhenOwnershipChanges() {
-        when(configMapClient.isManagedByCoreOperator("composite-structure", NAMESPACE))
+        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE))
                 .thenReturn(true)
                 .thenReturn(false);
 
@@ -79,7 +79,7 @@ class CompositeStructureWatchCoordinatorTest {
 
     @Test
     void startShouldNotFailOnConfigMapClientException() {
-        when(configMapClient.isManagedByCoreOperator("composite-structure", NAMESPACE))
+        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE))
                 .thenThrow(new RuntimeException("API error"));
 
         coordinator.start();
@@ -90,7 +90,7 @@ class CompositeStructureWatchCoordinatorTest {
 
     @Test
     void stopShouldStopWatcherAndShutdownExecutor() {
-        when(configMapClient.isManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(true);
+        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(true);
 
         coordinator.start();
         coordinator.stop();

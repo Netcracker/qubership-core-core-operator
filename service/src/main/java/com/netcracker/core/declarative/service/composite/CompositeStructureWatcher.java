@@ -17,7 +17,7 @@ import java.util.function.Consumer;
  * <p>
  * Monitors two Consul paths:
  * <ol>
- *   <li>{@code config/{namespace}/application/composite/structureRef} - reference to the current structure prefix</li>
+ *   <li>{@code config/{namespace}/application/composite/structureRef} - reference to the current composite structure prefix</li>
  *   <li>The prefix itself - actual composite structure data</li>
  * </ol>
  * When the structure changes, delegates handling to {@link ConsulSnapshotHandler}.
@@ -88,7 +88,7 @@ public class CompositeStructureWatcher {
     }
 
     private void onCompositeStructureRefSnapshot(ConsulPrefixSnapshot snapshot) {
-        final String compositeStructurePrefix = snapshot.getValue(compositeStructureRefKey);
+        String compositeStructurePrefix = snapshot.getValue(compositeStructureRefKey);
         log.info("Current composite structure prefix = '{}'", compositeStructurePrefix);
         switchCompositeStructurePoller(compositeStructurePrefix);
     }

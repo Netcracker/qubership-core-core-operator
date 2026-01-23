@@ -2,17 +2,18 @@ package com.netcracker.core.declarative.service.composite.consul.model;
 
 import io.vertx.ext.consul.KeyValue;
 import io.vertx.ext.consul.KeyValueList;
+import lombok.Getter;
 
 import java.util.*;
 
 public class ConsulPrefixSnapshot {
 
-    private final KeyValueList keyValueList;
     private final Map<String, String> keyValueMap;
+    @Getter
+    private final long index;
 
     public ConsulPrefixSnapshot(KeyValueList keyValueList) {
-        this.keyValueList = keyValueList;
-        this.keyValueMap = new TreeMap<>();
+        this.keyValueMap = new HashMap<>();
 
         final List<KeyValue> entries = (keyValueList != null && keyValueList.getList() != null) ?
                 keyValueList.getList() :
@@ -20,17 +21,13 @@ public class ConsulPrefixSnapshot {
         for (KeyValue kv : entries) {
             keyValueMap.put(kv.getKey(), kv.getValue());
         }
+
+
+        this.index = keyValueList == null ? 0 : keyValueList.getIndex();
     }
 
     public Set<String> getKeySet() {
         return Collections.unmodifiableSet(keyValueMap.keySet());
-    }
-
-    public long getIndex() {
-        if (keyValueList == null) {
-            return 0;
-        }
-        return keyValueList.getIndex();
     }
 
     public String getValue(String key) {
