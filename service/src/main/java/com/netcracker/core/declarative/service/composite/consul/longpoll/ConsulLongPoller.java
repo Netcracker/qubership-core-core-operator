@@ -10,6 +10,11 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+/**
+ * Continuously long-polls a Consul KV path for changes.
+ * On each successful poll with a new modify index, invokes the snapshot consumer.
+ * Automatically retries with a delay on errors.
+ */
 @Slf4j
 public final class ConsulLongPoller implements AutoCloseable {
     private static final Duration DELAY_ON_ERROR = Duration.ofSeconds(10);

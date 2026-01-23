@@ -45,7 +45,7 @@ class ConfigMapWriterTest {
 
         writer.requestUpdate(CONFIG_MAP_NAME, payload);
 
-        verify(configMapClient).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, payload, null);
+        verify(configMapClient).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, payload);
     }
 
     @Test
@@ -58,11 +58,11 @@ class ConfigMapWriterTest {
                 throw new RuntimeException("temporary failure");
             }
             return null;
-        }).when(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(payload), isNull());
+        }).when(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(payload));
 
         writer.requestUpdate(CONFIG_MAP_NAME, payload);
 
-        verify(configMapClient, times(2)).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, payload, null);
+        verify(configMapClient, times(2)).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, payload);
     }
 
     @Test
@@ -70,11 +70,11 @@ class ConfigMapWriterTest {
         Map<String, String> payload = Map.of("key", "value");
         doAnswer(invocation -> {
             throw new RuntimeException("persistent failure");
-        }).when(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(payload), isNull());
+        }).when(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(payload));
 
         writer.requestUpdate(CONFIG_MAP_NAME, payload);
 
         verify(configMapClient, times(ConfigMapWriter.MAX_RETRY_ATTEMPTS))
-                .createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, payload, null);
+                .createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, payload);
     }
 }

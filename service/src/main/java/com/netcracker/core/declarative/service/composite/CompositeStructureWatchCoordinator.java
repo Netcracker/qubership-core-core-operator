@@ -80,7 +80,7 @@ public class CompositeStructureWatchCoordinator {
 
     private void ensureWatcherState() {
         try {
-            boolean shouldManage = configMapClient.isManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
+            boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
             if (shouldManage) {
                 startWatcher();
             } else {

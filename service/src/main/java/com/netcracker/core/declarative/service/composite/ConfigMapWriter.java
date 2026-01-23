@@ -82,7 +82,7 @@ public class ConfigMapWriter {
 
     private void updateConfigMap(String configMapName, Map<String, String> payload, int attempt, Duration nextDelay) {
         try {
-            configMapClient.createOrUpdate(configMapName, namespace, payload, null);
+            configMapClient.createOrUpdate(configMapName, namespace, payload);
             if (attempt > 1) {
                 log.info("Successfully updated config map '{}' after {} attempts", configMapName, attempt);
             } else {
