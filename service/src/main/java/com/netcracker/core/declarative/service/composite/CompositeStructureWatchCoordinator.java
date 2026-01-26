@@ -3,17 +3,13 @@ package com.netcracker.core.declarative.service.composite;
 import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.ConsulClient;
 import io.quarkus.runtime.Startup;
-import jakarta.annotation.PostConstruct;
+import io.quarkus.scheduler.Scheduled;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.time.Duration;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -28,57 +24,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class CompositeStructureWatchCoordinator {
     public static final String CONFIG_MAP_NAME = "composite-structure";
-    private static final Duration CONFIG_MAP_MANAGEMENT_CHECK_INTERVAL = Duration.ofMinutes(5);
 
     private final CompositeStructureWatcher compositeStructureWatcher;
     private final ConfigMapClient configMapClient;
     private final String namespace;
     private final AtomicBoolean watcherRunning;
-    private final ScheduledExecutorService configMapManagementCheckExecutor;
 
     @Inject
-    @SuppressWarnings("unused")
-    public CompositeStructureWatchCoordinator(@ConfigProperty(name = "cloud.microservice.namespace") String namespace,
-                                              ConsulClient consulClient,
-                                              CompositeStructureSnapshotHandler compositeStructureHandler,
-                                              ConfigMapClient configMapClient) {
-        this(namespace, configMapClient,
-                new CompositeStructureWatcher(namespace, consulClient, compositeStructureHandler),
-                Executors.newSingleThreadScheduledExecutor(r -> {
-                    Thread thread = new Thread(r, "composite-structure-configmap-check");
-                    thread.setDaemon(true);
-                    return thread;
-                }));
-    }
-
-    CompositeStructureWatchCoordinator(String namespace,
-                                       ConfigMapClient configMapClient,
-                                       CompositeStructureWatcher compositeStructureWatcher,
-                                       ScheduledExecutorService executor) {
+    public CompositeStructureWatchCoordinator(
+            @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
+            ConsulClient consulClient,
+            CompositeStructureSnapshotHandler compositeStructureHandler,
+            ConfigMapClient configMapClient) {
         this.namespace = namespace;
         this.configMapClient = configMapClient;
-        this.compositeStructureWatcher = compositeStructureWatcher;
+        this.compositeStructureWatcher = new CompositeStructureWatcher(namespace, consulClient, compositeStructureHandler);
         this.watcherRunning = new AtomicBoolean(false);
-        this.configMapManagementCheckExecutor = executor;
     }
 
-    @PostConstruct
-    void start() {
-        configMapManagementCheckExecutor.scheduleWithFixedDelay(
-                this::ensureWatcherState,
-                0,
-                CONFIG_MAP_MANAGEMENT_CHECK_INTERVAL.toMinutes(),
-                TimeUnit.MINUTES
-        );
-    }
-
-    @PreDestroy
-    void stop() {
-        configMapManagementCheckExecutor.shutdownNow();
-        stopWatcher();
-    }
-
-    private void ensureWatcherState() {
+    /**
+     * Periodically checks ConfigMap management status every 5 minutes.
+     */
+    @Scheduled(every = "5m", concurrentExecution = Scheduled.ConcurrentExecution.SKIP, delayed = "0s")
+    void ensureWatcherState() {
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
             if (shouldManage) {
@@ -90,6 +58,11 @@ public class CompositeStructureWatchCoordinator {
         } catch (RuntimeException ex) {
             log.warn("Failed to verify management state for '{}'. Retrying on next schedule.", CONFIG_MAP_NAME, ex);
         }
+    }
+
+    @PreDestroy
+    void stop() {
+        stopWatcher();
     }
 
     private void startWatcher() {

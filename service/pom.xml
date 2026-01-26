@@ -70,6 +70,14 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-resteasy-client-jackson</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
         <!-- NC Depends -->
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
