@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -44,7 +45,7 @@ class ConfigMapClientTest {
         assertEquals(data, appliedConfigMap.getData());
 
         Map<String, String> resultingLabels = appliedConfigMap.getMetadata().getLabels();
-        assertEquals(4, resultingLabels.size());
+        assertEquals(3, resultingLabels.size());
         assertEquals("label", resultingLabels.get("existing"));
         assertEquals("Cloud-Core", resultingLabels.get("app.kubernetes.io/part-of"));
         assertEquals("core-operator", resultingLabels.get("app.kubernetes.io/managed-by"));
@@ -89,6 +90,7 @@ class ConfigMapClientTest {
             appliedConfigMapRef.set(configMap);
             return configMapResource;
         });
+        when(configMapResource.fieldManager(anyString())).thenReturn(configMapResource);
         when(configMapResource.serverSideApply()).thenAnswer(invocation -> {
             wasApplied.set(true);
             return null;
