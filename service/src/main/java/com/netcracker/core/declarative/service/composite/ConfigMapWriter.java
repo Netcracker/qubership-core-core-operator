@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionStage;
  */
 @ApplicationScoped
 @Slf4j
+//todo vlla действительно ли нам нужны ретраи для этой операции?
 public class ConfigMapWriter {
     static final int MAX_RETRY_ATTEMPTS = 4;
 

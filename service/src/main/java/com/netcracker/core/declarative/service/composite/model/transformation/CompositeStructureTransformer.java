@@ -1,4 +1,12 @@
-package com.netcracker.core.declarative.service.composite.consul.model;
+package com.netcracker.core.declarative.service.composite.model.transformation;
+
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
+import com.netcracker.core.declarative.service.composite.model.ConsulSnapshotSerializationException;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -10,25 +18,34 @@ import java.util.stream.Collectors;
  * into a {@link CompositeStructure} by grouping namespaces into baseline and satellites
  * with their blue-green roles (controller/origin/peer).
  */
-public class CompositeStructureSerializer {
+@ApplicationScoped
+//todo simplify?
+public class CompositeStructureTransformer {
     private static final Pattern STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/([^/]+)/([^/]+)$");
+    private static final String DEFAULT_CLOUD_PROVIDER = "OnPrem";
 
-    public static CompositeStructure toPayload(ConsulPrefixSnapshot consulPrefixSnapshot) {
-        List<Namespace> namespaces = parseNamespaces(consulPrefixSnapshot);
-        return new CompositeStructure(
+    private final String cloudProvider;
+
+    @Inject
+    public CompositeStructureTransformer(@ConfigProperty(name = "CLOUD_PROVIDER", defaultValue = DEFAULT_CLOUD_PROVIDER) String cloudProvider) {
+        this.cloudProvider = cloudProvider;
+    }
+
+    public CompositeStructureConfigMapPayload transform(List<GetValue> values) {
+        List<Namespace> namespaces = parseNamespaces(values);
+        CompositeStructure compositeStructure = new CompositeStructure(
                 buildBaseline(namespaces),
                 buildSatellites(namespaces)
         );
+        return new CompositeStructureConfigMapPayload(cloudProvider, compositeStructure);
     }
 
-    private static List<Namespace> parseNamespaces(ConsulPrefixSnapshot snapshot) {
-        Map<String, Map<String, String>> attributesByNamespace = snapshot.getKeySet().stream()
-                .sorted()
-                .map(key -> {
-                    Matcher m = STRUCTURE_ENTRY_PATTERN.matcher(key);
-                    return m.matches()
-                            ? new ParsedEntry(m.group(1), m.group(2), snapshot.getValue(key))
-                            : null;
+    private List<Namespace> parseNamespaces(List<GetValue> values) {
+        Map<String, Map<String, String>> attributesByNamespace = values.stream()
+                .sorted(Comparator.comparing(GetValue::getKey))
+                .map(gv -> {
+                    Matcher m = STRUCTURE_ENTRY_PATTERN.matcher(gv.getKey());
+                    return m.matches() ? new ParsedEntry(m.group(1), m.group(2), gv.getDecodedValue()) : null;
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(
@@ -41,7 +58,7 @@ public class CompositeStructureSerializer {
                 .toList();
     }
 
-    private static Namespace buildNamespace(String name, Map<String, String> attrs) {
+    private Namespace buildNamespace(String name, Map<String, String> attrs) {
         return new Namespace(
                 name,
                 parseEnum(CompositeRole.class, attrs.get("compositeRole"), "composite role"),
@@ -50,7 +67,7 @@ public class CompositeStructureSerializer {
         );
     }
 
-    private static <T extends Enum<T>> T parseEnum(Class<T> enumClass, String value, String description) {
+    private <T extends Enum<T>> T parseEnum(Class<T> enumClass, String value, String description) {
         if (value == null || value.isBlank()) {
             return null;
         }
@@ -62,7 +79,7 @@ public class CompositeStructureSerializer {
         }
     }
 
-    private static NamespaceRoles buildBaseline(List<Namespace> namespaces) {
+    private CompositeStructure.NamespaceRoles buildBaseline(List<Namespace> namespaces) {
         List<Namespace> baselineNamespaces = namespaces.stream()
                 .filter(entry -> entry.compositeRole() == CompositeRole.BASELINE)
                 .toList();
@@ -70,11 +87,11 @@ public class CompositeStructureSerializer {
         return buildNamespaceRoles(baselineNamespaces).orElse(null);
     }
 
-    private static List<NamespaceRoles> buildSatellites(List<Namespace> namespaces) {
+    private List<CompositeStructure.NamespaceRoles> buildSatellites(List<Namespace> namespaces) {
         return namespaces.stream()
                 .filter(entry -> entry.compositeRole() == CompositeRole.SATELLITE)
                 .collect(Collectors.groupingBy(
-                        CompositeStructureSerializer::resolveSatelliteKey,
+                        this::resolveSatelliteKey,
                         TreeMap::new,
                         Collectors.toList()))
                 .values().stream()
@@ -82,7 +99,7 @@ public class CompositeStructureSerializer {
                 .toList();
     }
 
-    private static String resolveSatelliteKey(Namespace entry) {
+    private String resolveSatelliteKey(Namespace entry) {
         if (entry.blueGreenRole() == BlueGreenRole.CONTROLLER) {
             return entry.name();
         }
@@ -93,7 +110,7 @@ public class CompositeStructureSerializer {
         return entry.name();
     }
 
-    private static Optional<NamespaceRoles> buildNamespaceRoles(Collection<Namespace> namespaceEntries) {
+    private Optional<CompositeStructure.NamespaceRoles> buildNamespaceRoles(Collection<Namespace> namespaceEntries) {
         if (namespaceEntries.isEmpty()) {
             return Optional.empty();
         }
@@ -115,10 +132,10 @@ public class CompositeStructureSerializer {
             return Optional.empty();
         }
 
-        return Optional.of(new NamespaceRoles(controller, origin, peer));
+        return Optional.of(new CompositeStructure.NamespaceRoles(controller, origin, peer));
     }
 
-    private static String findNamespaceByBlueGreenRole(Collection<Namespace> namespaces, BlueGreenRole blueGreenRole) {
+    private String findNamespaceByBlueGreenRole(Collection<Namespace> namespaces, BlueGreenRole blueGreenRole) {
         return namespaces.stream()
                 .filter(entry -> entry.blueGreenRole() == blueGreenRole)
                 .map(Namespace::name)

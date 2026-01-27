@@ -1,8 +1,10 @@
-package com.netcracker.core.declarative.service.composite.consul.model;
+package com.netcracker.core.declarative.service.composite.model.transformation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -13,24 +15,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class CompositeStructureSerializerTest {
+class CompositeStructureTransformerTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private CompositeStructureTransformer compositeStructureTransformer;
+
+    @BeforeEach
+    void setUp() {
+        compositeStructureTransformer = new CompositeStructureTransformer("test-provider");
+    }
 
     @Test
     void standaloneTest() {
-        Map<String, String> keyValues = new LinkedHashMap<>(){{
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
             put("composite/bs-origin/structure/bs-origin/compositeRole", "baseline");
         }};
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"baseline\":{\"origin\":\"bs-origin\"}}",
+        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"origin\":\"bs-origin\"}}}",
                 json);
     }
 
     @Test
     void blueGreenTest() {
-        Map<String, String> keyValues = new LinkedHashMap<>(){{
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
             put("composite/bs-origin/structure/bs-controller/bluegreenRole", "controller");
             put("composite/bs-origin/structure/bs-controller/compositeRole", "baseline");
             put("composite/bs-origin/structure/bs-origin/bluegreenRole", "origin");
@@ -43,13 +52,13 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"}}",
+        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"}}}",
                 json);
     }
 
     @Test
     void compositeTest() {
-        Map<String, String> keyValues = new LinkedHashMap<>(){{
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
             put("composite/bs-origin/structure/bs-origin/compositeRole", "baseline");
             put("composite/bs-origin/structure/st-1-origin/compositeRole", "satellite");
             put("composite/bs-origin/structure/st-2-origin/compositeRole", "satellite");
@@ -57,13 +66,13 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"baseline\":{\"origin\":\"bs-origin\"},\"satellites\":[{\"origin\":\"st-1-origin\"},{\"origin\":\"st-2-origin\"}]}",
+        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"origin\":\"bs-origin\"},\"satellites\":[{\"origin\":\"st-1-origin\"},{\"origin\":\"st-2-origin\"}]}}",
                 json);
     }
 
     @Test
     void compositeBlueGreenAllTest() {
-        Map<String, String> keyValues = new LinkedHashMap<>(){{
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
             put("composite/bs-origin/structure/bs-controller/bluegreenRole", "controller");
             put("composite/bs-origin/structure/bs-controller/compositeRole", "baseline");
             put("composite/bs-origin/structure/bs-origin/bluegreenRole", "origin");
@@ -92,13 +101,13 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"controller\":\"st-2-controller\",\"origin\":\"st-2-origin\",\"peer\":\"st-2-peer\"}]}",
+        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"controller\":\"st-2-controller\",\"origin\":\"st-2-origin\",\"peer\":\"st-2-peer\"}]}}",
                 json);
     }
 
     @Test
     void compositeBlueGreenSomeTest() {
-        Map<String, String> keyValues = new LinkedHashMap<>(){{
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
             put("composite/bs-origin/structure/bs-controller/bluegreenRole", "controller");
             put("composite/bs-origin/structure/bs-controller/compositeRole", "baseline");
             put("composite/bs-origin/structure/bs-origin/bluegreenRole", "origin");
@@ -120,11 +129,11 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"origin\":\"st-2-origin\"}]}",
+        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"origin\":\"st-2-origin\"}]}}",
                 json);
     }
 
-    private static String serialize(Map<String, String> keyValues) {
+    private String serialize(Map<String, String> keyValues) {
         List<GetValue> values = keyValues.entrySet().stream()
                 .map(entry -> {
                     GetValue gv = mock(GetValue.class);
@@ -133,8 +142,7 @@ class CompositeStructureSerializerTest {
                     return gv;
                 })
                 .toList();
-        ConsulPrefixSnapshot snapshot = ConsulPrefixSnapshot.fromGetValues(values, 0L);
-        CompositeStructure payload = CompositeStructureSerializer.toPayload(snapshot);
+        CompositeStructureConfigMapPayload payload = compositeStructureTransformer.transform(values);
         try {
             return OBJECT_MAPPER.writeValueAsString(payload);
         } catch (JsonProcessingException e) {

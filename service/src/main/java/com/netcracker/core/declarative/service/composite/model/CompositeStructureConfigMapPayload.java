@@ -1,4 +1,4 @@
-package com.netcracker.core.declarative.service.composite.consul.model;
+package com.netcracker.core.declarative.service.composite.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

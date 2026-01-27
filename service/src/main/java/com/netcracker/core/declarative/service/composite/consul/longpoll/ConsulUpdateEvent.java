@@ -1,4 +1,4 @@
-package com.netcracker.core.declarative.service.composite.consul.longpoll2;
+package com.netcracker.core.declarative.service.composite.consul.longpoll;
 
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import lombok.AllArgsConstructor;

@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Coordinates composite structure watching based on ConfigMap ownership.
  * <p>
  * Periodically checks if the {@value #CONFIG_MAP_NAME} ConfigMap is managed by core-operator.
- * If managed, starts the {@link CompositeStructureWatcher}; otherwise stops it.
+ * If managed, starts the {@link CompositeStructureRefChangeListener}; otherwise stops it.
  * This allows another operator to take over ConfigMap management when needed.
  */
 @ApplicationScoped
@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CompositeStructureWatchCoordinator {
     public static final String CONFIG_MAP_NAME = "composite-structure";
 
-    private final CompositeStructureWatcher compositeStructureWatcher;
+    private final CompositeStructureRefChangeListener compositeStructureRefChangeListener;
     private final ConfigMapClient configMapClient;
     private final String namespace;
     private final AtomicBoolean watcherRunning;
@@ -32,11 +32,11 @@ public class CompositeStructureWatchCoordinator {
     @Inject
     public CompositeStructureWatchCoordinator(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
-            CompositeStructureWatcher compositeStructureWatcher,
+            CompositeStructureRefChangeListener compositeStructureRefChangeListener,
             ConfigMapClient configMapClient) {
         this.namespace = namespace;
         this.configMapClient = configMapClient;
-        this.compositeStructureWatcher = compositeStructureWatcher;
+        this.compositeStructureRefChangeListener = compositeStructureRefChangeListener;
         this.watcherRunning = new AtomicBoolean(false);
     }
 
@@ -68,13 +68,13 @@ public class CompositeStructureWatchCoordinator {
             return;
         }
         log.info("Starting composite structure watcher for ConfigMap '{}'", CONFIG_MAP_NAME);
-        compositeStructureWatcher.start();
+        compositeStructureRefChangeListener.start();
     }
 
     private void stopWatcher() {
         if (!watcherRunning.compareAndSet(true, false)) {
             return;
         }
-        compositeStructureWatcher.stop();
+        compositeStructureRefChangeListener.stop();
     }
 }
