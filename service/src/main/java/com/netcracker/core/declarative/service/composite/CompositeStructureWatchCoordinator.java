@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Periodically checks if the {@value #CONFIG_MAP_NAME} ConfigMap is managed by core-operator.
  * If managed, starts the {@link CompositeStructureRefChangeListener}; otherwise stops it.
  * This allows another operator to take over ConfigMap management when needed.
+ * <p>
+ * The feature can be disabled via {@code composite-structure.sync.enabled=false}.
  */
 @ApplicationScoped
 @Startup
@@ -27,14 +29,17 @@ public class CompositeStructureWatchCoordinator {
     private final CompositeStructureRefChangeListener compositeStructureRefChangeListener;
     private final ConfigMapClient configMapClient;
     private final String namespace;
+    private final boolean featureEnabled;
     private final AtomicBoolean watcherRunning;
 
     @Inject
     public CompositeStructureWatchCoordinator(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
+            @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
             CompositeStructureRefChangeListener compositeStructureRefChangeListener,
             ConfigMapClient configMapClient) {
         this.namespace = namespace;
+        this.featureEnabled = featureEnabled;
         this.configMapClient = configMapClient;
         this.compositeStructureRefChangeListener = compositeStructureRefChangeListener;
         this.watcherRunning = new AtomicBoolean(false);
@@ -45,6 +50,12 @@ public class CompositeStructureWatchCoordinator {
      */
     @Scheduled(every = "5m", concurrentExecution = Scheduled.ConcurrentExecution.SKIP, delayed = "0s")
     void ensureWatcherState() {
+        if (!featureEnabled) {
+            log.debug("Composite structure sync is disabled by configuration.");
+            stopWatcher();
+            return;
+        }
+
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
             if (shouldManage) {

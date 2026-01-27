@@ -5,7 +5,7 @@ import com.netcracker.core.declarative.service.composite.consul.CompositeStructu
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureRefUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulUpdateEventFactory;
-import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPoolSession;
+import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -29,19 +29,19 @@ class CompositeStructureRefChangeListenerTest {
     private static final String STRUCTURE_REF_KEY = "config/ns/application/composite/structureRef";
 
     private ConsulLongPoller consulLongPoller;
-    private LongPoolSession refLongPoolSession;
-    private LongPoolSession structureLongPoolSession;
+    private LongPollSession refLongPollSession;
+    private LongPollSession structureLongPollSession;
 
     private CompositeStructureRefChangeListener watcher;
 
     @BeforeEach
     void setUp() {
         consulLongPoller = mock(ConsulLongPoller.class);
-        refLongPoolSession = createMockWatchHandle();
-        structureLongPoolSession = createMockWatchHandle();
+        refLongPollSession = createMockWatchHandle();
+        structureLongPollSession = createMockWatchHandle();
 
         when(consulLongPoller.startWatchConsulRoot(eq(STRUCTURE_REF_KEY), any()))
-                .thenReturn(refLongPoolSession);
+                .thenReturn(refLongPollSession);
 
         watcher = new CompositeStructureRefChangeListener(NAMESPACE, consulLongPoller);
     }
@@ -66,13 +66,13 @@ class CompositeStructureRefChangeListenerTest {
         watcher.start();
         watcher.stop();
 
-        verify(refLongPoolSession).cancel();
+        verify(refLongPollSession).cancel();
     }
 
     @Test
     void newPrefixShouldStartStructureWatch() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureLongPoolSession);
+                .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
@@ -82,56 +82,56 @@ class CompositeStructureRefChangeListenerTest {
 
     @Test
     void prefixChangeShouldSwitchWatch() {
-        LongPoolSession newStructureLongPoolSession = createMockWatchHandle();
+        LongPollSession newStructureLongPollSession = createMockWatchHandle();
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureLongPoolSession);
+                .thenReturn(structureLongPollSession);
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/two"), any()))
-                .thenReturn(newStructureLongPoolSession);
+                .thenReturn(newStructureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("prefix/two");
 
-        verify(structureLongPoolSession).cancel();
+        verify(structureLongPollSession).cancel();
         verify(consulLongPoller).startWatchConsulRoot(eq("prefix/two"), any());
     }
 
     @Test
     void samePrefixShouldNotRestartWatch() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureLongPoolSession);
+                .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("prefix/one");
 
         verify(consulLongPoller, times(1)).startWatchConsulRoot(eq("prefix/one"), any());
-        verify(structureLongPoolSession, never()).cancel();
+        verify(structureLongPollSession, never()).cancel();
     }
 
     @Test
     void blankPrefixShouldCancelWatch() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureLongPoolSession);
+                .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("   ");
 
-        verify(structureLongPoolSession).cancel();
+        verify(structureLongPollSession).cancel();
     }
 
     @Test
     void stopShouldCancelAllWatches() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureLongPoolSession);
+                .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         watcher.stop();
 
-        verify(refLongPoolSession).cancel();
-        verify(structureLongPoolSession).cancel();
+        verify(refLongPollSession).cancel();
+        verify(structureLongPollSession).cancel();
     }
 
     @Test
@@ -149,7 +149,7 @@ class CompositeStructureRefChangeListenerTest {
         ArgumentCaptor<ConsulUpdateEventFactory<CompositeStructureUpdateEvent>> factoryCaptor =
                 ArgumentCaptor.forClass(ConsulUpdateEventFactory.class);
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), factoryCaptor.capture()))
-                .thenReturn(structureLongPoolSession);
+                .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
@@ -178,9 +178,9 @@ class CompositeStructureRefChangeListenerTest {
     /**
      * Creates a mock WatchHandle that tracks cancelled state properly.
      */
-    private static LongPoolSession createMockWatchHandle() {
+    private static LongPollSession createMockWatchHandle() {
         AtomicBoolean cancelled = new AtomicBoolean(false);
-        LongPoolSession handle = mock(LongPoolSession.class);
+        LongPollSession handle = mock(LongPollSession.class);
         when(handle.isCancelled()).thenAnswer(inv -> cancelled.get());
         org.mockito.Mockito.doAnswer(inv -> {
             cancelled.set(true);

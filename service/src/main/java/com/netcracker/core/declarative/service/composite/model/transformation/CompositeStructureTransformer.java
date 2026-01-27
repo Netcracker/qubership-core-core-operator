@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
  * with their blue-green roles (controller/origin/peer).
  */
 @ApplicationScoped
-//todo simplify?
 public class CompositeStructureTransformer {
     private static final Pattern STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/([^/]+)/([^/]+)$");
     private static final String DEFAULT_CLOUD_PROVIDER = "OnPrem";

@@ -4,7 +4,7 @@ import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureRefUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
-import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPoolSession;
+import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -33,8 +33,8 @@ public class CompositeStructureRefChangeListener {
     private final ConsulLongPoller consulLongPoller;
     private final String compositeStructureRefKey;
 
-    private LongPoolSession compositeStructureRefSession;
-    private LongPoolSession compositeStructureSession;
+    private LongPollSession compositeStructureRefSession;
+    private LongPollSession compositeStructureSession;
     private String currentCompositeStructurePrefix;
 
     @Inject
@@ -75,7 +75,7 @@ public class CompositeStructureRefChangeListener {
     /**
      * Handles structureRef update events from Consul.
      */
-    void onCompositeStructureRefSnapshot(@Observes CompositeStructureRefUpdateEvent event) {
+    synchronized void onCompositeStructureRefSnapshot(@Observes CompositeStructureRefUpdateEvent event) {
         if (!isRunning()) {
             log.debug("Received structureRef event but watcher is stopped, ignoring");
             return;
@@ -115,7 +115,7 @@ public class CompositeStructureRefChangeListener {
         return compositeStructureRefSession != null && !compositeStructureRefSession.isCancelled();
     }
 
-    private void cancelWatch(LongPoolSession watch) {
+    private void cancelWatch(LongPollSession watch) {
         if (watch != null) {
             watch.cancel();
         }
