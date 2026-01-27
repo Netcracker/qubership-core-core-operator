@@ -1,16 +1,16 @@
 package com.netcracker.core.declarative.service.composite;
 
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.service.composite.consul.model.ConsulPrefixSnapshot;
 import com.netcracker.core.declarative.service.composite.consul.model.ConsulSnapshotSerializationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.vertx.ext.consul.KeyValue;
-import io.vertx.ext.consul.KeyValueList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class CompositeStructureSnapshotHandlerTest {
 
@@ -82,10 +83,14 @@ class CompositeStructureSnapshotHandlerTest {
     }
 
     private static ConsulPrefixSnapshot createSnapshot(Map<String, String> keyValues) {
-        KeyValueList keyValueList = new KeyValueList();
-        keyValueList.setList(keyValues.entrySet().stream()
-                .map(entry -> new KeyValue().setKey(entry.getKey()).setValue(entry.getValue()))
-                .toList());
-        return new ConsulPrefixSnapshot(keyValueList);
+        List<GetValue> values = keyValues.entrySet().stream()
+                .map(entry -> {
+                    GetValue gv = mock(GetValue.class);
+                    when(gv.getKey()).thenReturn(entry.getKey());
+                    when(gv.getDecodedValue()).thenReturn(entry.getValue());
+                    return gv;
+                })
+                .toList();
+        return ConsulPrefixSnapshot.fromGetValues(values, 0L);
     }
 }

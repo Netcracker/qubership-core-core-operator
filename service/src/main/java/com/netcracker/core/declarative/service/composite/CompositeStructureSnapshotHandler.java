@@ -1,6 +1,5 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.netcracker.core.declarative.service.composite.consul.ConsulSnapshotHandler;
 import com.netcracker.core.declarative.service.composite.consul.model.CompositeStructureConfigMapPayload;
 import com.netcracker.core.declarative.service.composite.consul.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.consul.model.CompositeStructureSerializer;
@@ -25,7 +24,7 @@ import static com.netcracker.core.declarative.service.composite.CompositeStructu
  */
 @ApplicationScoped
 @Slf4j
-public class CompositeStructureSnapshotHandler implements ConsulSnapshotHandler {
+public class CompositeStructureSnapshotHandler {
     private static final String CONFIG_MAP_DATA_KEY = "data";
     private static final String DEFAULT_CLOUD_PROVIDER = "OnPrem";
 
@@ -42,7 +41,11 @@ public class CompositeStructureSnapshotHandler implements ConsulSnapshotHandler 
         this.cloudProvider = cloudProvider;
     }
 
-    @Override
+    /**
+     * Handles a composite structure snapshot by transforming it to JSON and updating the ConfigMap.
+     *
+     * @param compositeStructureSnapshot the snapshot from Consul
+     */
     public void handle(ConsulPrefixSnapshot compositeStructureSnapshot) {
         log.info("Store Composite Structure to config map {}", CONFIG_MAP_NAME);
         try {

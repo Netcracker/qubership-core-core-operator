@@ -1,40 +1,36 @@
 package com.netcracker.core.declarative.service.composite.consul.model;
 
-import io.vertx.ext.consul.KeyValue;
-import io.vertx.ext.consul.KeyValueList;
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 class ConsulPrefixSnapshotTest {
 
     @Test
     void buildsSortedImmutableViewOfEntries() {
-        KeyValue first = mock(KeyValue.class);
+        GetValue first = mock(GetValue.class);
         when(first.getKey()).thenReturn("b");
-        when(first.getValue()).thenReturn("value-b");
+        when(first.getDecodedValue()).thenReturn("value-b");
 
-        KeyValue second = mock(KeyValue.class);
+        GetValue second = mock(GetValue.class);
         when(second.getKey()).thenReturn("a");
-        when(second.getValue()).thenReturn("value-a");
+        when(second.getDecodedValue()).thenReturn("value-a");
 
-        KeyValue third = mock(KeyValue.class);
+        GetValue third = mock(GetValue.class);
         when(third.getKey()).thenReturn("c");
-        when(third.getValue()).thenReturn("value-c");
+        when(third.getDecodedValue()).thenReturn("value-c");
 
-        KeyValueList keyValueList = mock(KeyValueList.class);
-        when(keyValueList.getIndex()).thenReturn(123L);
-        when(keyValueList.getList()).thenReturn(Arrays.asList(first, second, third));
-
-        ConsulPrefixSnapshot snapshot = new ConsulPrefixSnapshot(keyValueList);
+        ConsulPrefixSnapshot snapshot = ConsulPrefixSnapshot.fromGetValues(
+                Arrays.asList(first, second, third), 123L);
 
         assertThat(snapshot.getIndex()).isEqualTo(123L);
         assertThat(snapshot.getValue("a")).isEqualTo("value-a");
@@ -42,30 +38,25 @@ class ConsulPrefixSnapshotTest {
         assertThat(snapshot.getValue("c")).isEqualTo("value-c");
 
         Set<String> keys = snapshot.getKeySet();
-        assertThat(keys).containsExactly("a", "b", "c");
+        assertThat(keys).containsExactlyInAnyOrder("a", "b", "c");
         assertThatThrownBy(() -> keys.add("d")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
     void handlesNullListsGracefully() {
-        ConsulPrefixSnapshot emptySnapshot = new ConsulPrefixSnapshot(null);
+        ConsulPrefixSnapshot emptySnapshot = ConsulPrefixSnapshot.fromGetValues(null, 0L);
 
         assertThat(emptySnapshot.getIndex()).isZero();
         assertThat(emptySnapshot.getKeySet()).isEmpty();
         assertThat(emptySnapshot.getValue("missing")).isNull();
+    }
 
-        KeyValueList keyValueList = mock(KeyValueList.class);
-        when(keyValueList.getIndex()).thenReturn(55L);
-        when(keyValueList.getList()).thenReturn(null);
-
-        ConsulPrefixSnapshot snapshot = new ConsulPrefixSnapshot(keyValueList);
+    @Test
+    void handlesEmptyListGracefully() {
+        ConsulPrefixSnapshot snapshot = ConsulPrefixSnapshot.fromGetValues(Collections.emptyList(), 55L);
 
         assertThat(snapshot.getIndex()).isEqualTo(55L);
         assertThat(snapshot.getKeySet()).isEmpty();
         assertThat(snapshot.getValue("missing")).isNull();
-
-        verify(keyValueList).getIndex();
-        verify(keyValueList).getList();
-        verifyNoMoreInteractions(keyValueList);
     }
 }

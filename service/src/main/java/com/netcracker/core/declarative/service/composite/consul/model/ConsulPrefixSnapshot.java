@@ -1,29 +1,41 @@
 package com.netcracker.core.declarative.service.composite.consul.model;
 
-import io.vertx.ext.consul.KeyValue;
-import io.vertx.ext.consul.KeyValueList;
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import lombok.Getter;
 
 import java.util.*;
 
+/**
+ * Immutable snapshot of Consul KV entries under a prefix.
+ * <p>
+ * Provides access to key-value pairs and the Consul modify index for change tracking.
+ */
 public class ConsulPrefixSnapshot {
 
     private final Map<String, String> keyValueMap;
     @Getter
     private final long index;
 
-    public ConsulPrefixSnapshot(KeyValueList keyValueList) {
-        this.keyValueMap = new HashMap<>();
+    private ConsulPrefixSnapshot(Map<String, String> keyValueMap, long index) {
+        this.keyValueMap = keyValueMap;
+        this.index = index;
+    }
 
-        final List<KeyValue> entries = (keyValueList != null && keyValueList.getList() != null) ?
-                keyValueList.getList() :
-                Collections.emptyList();
-        for (KeyValue kv : entries) {
-            keyValueMap.put(kv.getKey(), kv.getValue());
+    /**
+     * Creates a snapshot from NC Quarkus Consul client response.
+     *
+     * @param values      the list of GetValue entries from Consul
+     * @param consulIndex the Consul modify index
+     * @return a new snapshot instance
+     */
+    public static ConsulPrefixSnapshot fromGetValues(List<GetValue> values, long consulIndex) {
+        Map<String, String> keyValueMap = new HashMap<>();
+        if (values != null) {
+            for (GetValue gv : values) {
+                keyValueMap.put(gv.getKey(), gv.getDecodedValue());
+            }
         }
-
-
-        this.index = keyValueList == null ? 0 : keyValueList.getIndex();
+        return new ConsulPrefixSnapshot(keyValueMap, consulIndex);
     }
 
     public Set<String> getKeySet() {
