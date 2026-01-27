@@ -36,9 +36,6 @@ public class ConfigMapWriter {
         this.namespace = namespace;
     }
 
-    /**
-     * Schedules an asynchronous ConfigMap update.
-     */
     @Asynchronous
     @Retry(maxRetries = MAX_RETRY_ATTEMPTS, delay = 3000, maxDuration = 2, durationUnit = ChronoUnit.MINUTES)
     @ExponentialBackoff(maxDelay = 30, maxDelayUnit = ChronoUnit.SECONDS)

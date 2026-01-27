@@ -3,7 +3,7 @@ package com.netcracker.core.declarative.service.composite.model.transformation;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
-import com.netcracker.core.declarative.service.composite.model.ConsulSnapshotSerializationException;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -73,7 +73,7 @@ public class CompositeStructureTransformer {
         try {
             return Enum.valueOf(enumClass, value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ConsulSnapshotSerializationException(
+            throw new CompositeStructureParseException(
                     "Invalid " + description + ": " + value, e);
         }
     }

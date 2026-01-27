@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,7 +69,7 @@ class ConsulLongPollerTest {
         when(consulClient.getKVValuesAsync(anyString(), anyString(), any(QueryParams.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(session).isNotNull();
         assertThat(session.isCancelled()).isFalse();
@@ -88,7 +89,7 @@ class ConsulLongPollerTest {
         when(consulClient.getKVValuesAsync(eq(ROOT_PATH), eq(TOKEN), any(QueryParams.class)))
                 .thenReturn(CompletableFuture.completedFuture(response));
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(eventFired.await(2, TimeUnit.SECONDS)).isTrue();
 
@@ -114,7 +115,7 @@ class ConsulLongPollerTest {
                     return CompletableFuture.completedFuture(emptyResponse);
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(pollCompleted.await(2, TimeUnit.SECONDS)).isTrue();
         verify(event, never()).fire(any(ConsulUpdateEvent.class));
@@ -132,7 +133,7 @@ class ConsulLongPollerTest {
                     return CompletableFuture.completedFuture(null);
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(pollCompleted.await(2, TimeUnit.SECONDS)).isTrue();
         verify(event, never()).fire(any(ConsulUpdateEvent.class));
@@ -157,13 +158,14 @@ class ConsulLongPollerTest {
                     return CompletableFuture.completedFuture(null);
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(firstPollDone.await(2, TimeUnit.SECONDS)).isTrue();
         session.cancel();
 
         // Second poll should not happen or should exit early
         boolean secondPollHappened = secondPollBlocked.await(500, TimeUnit.MILLISECONDS);
+        assertFalse(secondPollHappened);
         // At most one more poll could have been scheduled before cancellation took effect
         assertThat(pollCount.get()).isLessThanOrEqualTo(2);
     }
@@ -180,7 +182,7 @@ class ConsulLongPollerTest {
                     return CompletableFuture.failedFuture(new RuntimeException("Consul unavailable"));
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         verify(consulClient, timeout(5000).atLeast(1))
                 .getKVValuesAsync(eq(ROOT_PATH), eq(TOKEN), any(QueryParams.class));
@@ -212,7 +214,7 @@ class ConsulLongPollerTest {
             return null;
         }).when(event).fire(any(ConsulUpdateEvent.class));
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         // With RETRY_DELAY_MS=100ms configured in test, retry should happen quickly
         assertThat(secondTokenCall.await(2, TimeUnit.SECONDS)).isTrue();
@@ -234,7 +236,7 @@ class ConsulLongPollerTest {
                     return CompletableFuture.completedFuture(response);
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(pollDone.await(2, TimeUnit.SECONDS)).isTrue();
 
@@ -267,7 +269,7 @@ class ConsulLongPollerTest {
                     return CompletableFuture.completedFuture(count == 1 ? response1 : response2);
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(secondPoll.await(10, TimeUnit.SECONDS)).isTrue();
         assertThat(secondIndex.get()).isEqualTo(100L);
@@ -294,7 +296,7 @@ class ConsulLongPollerTest {
                     });
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(pollStarted.await(2, TimeUnit.SECONDS)).isTrue();
         session.cancel();
@@ -317,7 +319,7 @@ class ConsulLongPollerTest {
                     return CompletableFuture.completedFuture(responseWithNullValue);
                 });
 
-        LongPollSession session = poller.startWatchConsulRoot(ROOT_PATH, TestEvent::new);
+        LongPollSession session = poller.startWatch(ROOT_PATH, TestEvent::new);
 
         assertThat(pollCompleted.await(2, TimeUnit.SECONDS)).isTrue();
         verify(event, never()).fire(any(ConsulUpdateEvent.class));
