@@ -24,7 +24,7 @@ public class ConfigMapClient {
     public static final String LABEL_PART_OF = "app.kubernetes.io/part-of";
     public static final String LABEL_MANAGED_BY = "app.kubernetes.io/managed-by";
     public static final String MANAGED_BY_CORE_OPERATOR = "core-operator";
-    public static final String CLOUD_CORE_PART_OF = "Cloud-Core";
+    public static final String PART_OF_CLOUD_CORE = "Cloud-Core";
 
     private final KubernetesClient client;
 
@@ -68,19 +68,19 @@ public class ConfigMapClient {
         client.configMaps()
                 .inNamespace(namespace)
                 .resource(configMap)
-                .fieldManager("core-operator")
+                .fieldManager(MANAGED_BY_CORE_OPERATOR)
                 .serverSideApply();
     }
 
     private Map<String, String> resolveConfigMapLabels(ConfigMap existingConfigMap) {
         Map<String, String> mergedLabels = new HashMap<>();
         if (existingConfigMap != null
-            && existingConfigMap.getMetadata() != null
-            && existingConfigMap.getMetadata().getLabels() != null) {
+                && existingConfigMap.getMetadata() != null
+                && existingConfigMap.getMetadata().getLabels() != null) {
             mergedLabels.putAll(existingConfigMap.getMetadata().getLabels());
         }
 
-        mergedLabels.put(LABEL_PART_OF, CLOUD_CORE_PART_OF);
+        mergedLabels.put(LABEL_PART_OF, PART_OF_CLOUD_CORE);
         mergedLabels.put(LABEL_MANAGED_BY, MANAGED_BY_CORE_OPERATOR);
 
         return mergedLabels;
@@ -100,18 +100,12 @@ public class ConfigMapClient {
     }
 
     boolean shouldBeManagedByCoreOperator(ConfigMap existingConfigMap) {
-        if (existingConfigMap == null) {
-            return true;
-        }
-        String managedBy = Optional.ofNullable(existingConfigMap.getMetadata())
+        return Optional.ofNullable(existingConfigMap)
+                .map(ConfigMap::getMetadata)
                 .map(ObjectMeta::getLabels)
                 .map(labels -> labels.get(LABEL_MANAGED_BY))
-                .orElse(null);
-        if (managedBy == null) {
-            //If no one manages - core-operator manages.
-            return true;
-        }
-        return MANAGED_BY_CORE_OPERATOR.equals(managedBy);
+                .map(MANAGED_BY_CORE_OPERATOR::equals)
+                .orElse(true);
     }
 
     private ConfigMap getConfigMap(String name, String namespace) {
