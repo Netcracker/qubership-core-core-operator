@@ -2,14 +2,16 @@ package com.netcracker.core.declarative.service.composite.consul.model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.vertx.ext.consul.KeyValue;
-import io.vertx.ext.consul.KeyValueList;
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class CompositeStructureSerializerTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -21,8 +23,6 @@ class CompositeStructureSerializerTest {
         }};
 
         String json = serialize(keyValues);
-
-        System.out.println(json);
 
         assertEquals("{\"baseline\":{\"origin\":\"bs-origin\"}}",
                 json);
@@ -43,8 +43,6 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        System.out.println(json);
-
         assertEquals("{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"}}",
                 json);
     }
@@ -58,8 +56,6 @@ class CompositeStructureSerializerTest {
         }};
 
         String json = serialize(keyValues);
-
-        System.out.println(json);
 
         assertEquals("{\"baseline\":{\"origin\":\"bs-origin\"},\"satellites\":[{\"origin\":\"st-1-origin\"},{\"origin\":\"st-2-origin\"}]}",
                 json);
@@ -96,8 +92,6 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        System.out.println(json);
-
         assertEquals("{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"controller\":\"st-2-controller\",\"origin\":\"st-2-origin\",\"peer\":\"st-2-peer\"}]}",
                 json);
     }
@@ -126,18 +120,21 @@ class CompositeStructureSerializerTest {
 
         String json = serialize(keyValues);
 
-        System.out.println(json);
-
         assertEquals("{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"origin\":\"st-2-origin\"}]}",
                 json);
     }
 
     private static String serialize(Map<String, String> keyValues) {
-        KeyValueList keyValueList = new KeyValueList();
-        keyValueList.setList(keyValues.entrySet().stream()
-                .map(entry -> new KeyValue().setKey(entry.getKey()).setValue(entry.getValue()))
-                .toList());
-        CompositeStructure payload = CompositeStructureSerializer.toPayload(new ConsulPrefixSnapshot(keyValueList));
+        List<GetValue> values = keyValues.entrySet().stream()
+                .map(entry -> {
+                    GetValue gv = mock(GetValue.class);
+                    when(gv.getKey()).thenReturn(entry.getKey());
+                    when(gv.getDecodedValue()).thenReturn(entry.getValue());
+                    return gv;
+                })
+                .toList();
+        ConsulPrefixSnapshot snapshot = ConsulPrefixSnapshot.fromGetValues(values, 0L);
+        CompositeStructure payload = CompositeStructureSerializer.toPayload(snapshot);
         try {
             return OBJECT_MAPPER.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
@@ -145,4 +142,3 @@ class CompositeStructureSerializerTest {
         }
     }
 }
-

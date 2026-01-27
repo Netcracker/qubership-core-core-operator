@@ -1,7 +1,6 @@
 package com.netcracker.core.declarative.service.composite;
 
 import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
-import com.netcracker.core.declarative.service.composite.consul.ConsulClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,18 +21,8 @@ class CompositeStructureWatchCoordinatorTest {
     void setUp() {
         configMapClient = mock(ConfigMapClient.class);
         watcher = mock(CompositeStructureWatcher.class);
-        ConsulClient consulClient = mock(ConsulClient.class);
-        CompositeStructureSnapshotHandler handler = mock(CompositeStructureSnapshotHandler.class);
 
-        coordinator = new CompositeStructureWatchCoordinator(NAMESPACE, consulClient, handler, configMapClient);
-        // Replace the watcher with our mock for testing
-        try {
-            java.lang.reflect.Field watcherField = CompositeStructureWatchCoordinator.class.getDeclaredField("compositeStructureWatcher");
-            watcherField.setAccessible(true);
-            watcherField.set(coordinator, watcher);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject mock watcher", e);
-        }
+        coordinator = new CompositeStructureWatchCoordinator(NAMESPACE, watcher, configMapClient);
     }
 
     @Test

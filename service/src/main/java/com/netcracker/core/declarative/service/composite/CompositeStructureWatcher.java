@@ -1,16 +1,17 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.netcracker.core.declarative.service.composite.consul.ConsulClient;
-import com.netcracker.core.declarative.service.composite.consul.ConsulSnapshotHandler;
-import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
-import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPollerFactory;
-import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollConfig;
-import com.netcracker.core.declarative.service.composite.consul.model.ConsulPrefixSnapshot;
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.service.composite.consul.longpoll2.CompositeStructureConsulUpdateEvent;
+import com.netcracker.core.declarative.service.composite.consul.longpoll2.CompositeStructureRefConsulUpdateEvent;
+import com.netcracker.core.declarative.service.composite.consul.longpoll2.ConsulLongPoller;
+import com.netcracker.core.declarative.service.composite.consul.longpoll2.WatchHandle;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.time.Duration;
 import java.util.Objects;
-import java.util.function.Consumer;
 
 /**
  * Watches Consul for composite structure changes using long-polling.
@@ -20,77 +21,101 @@ import java.util.function.Consumer;
  *   <li>{@code config/{namespace}/application/composite/structureRef} - reference to the current composite structure prefix</li>
  *   <li>The prefix itself - actual composite structure data</li>
  * </ol>
- * When the structure changes, delegates handling to {@link ConsulSnapshotHandler}.
+ * When the structure reference changes, automatically switches to watching the new prefix.
+ * Structure updates are handled by {@link com.netcracker.core.declarative.service.composite.consul.longpoll2.CompositeStructureListener}.
  */
+@ApplicationScoped
 @Slf4j
 public class CompositeStructureWatcher {
 
     private static final String COMPOSITE_STRUCTURE_REF_TEMPLATE = "config/%s/application/composite/structureRef";
-    private static final LongPollConfig KV_POLL_CONFIG = LongPollConfig.builder()
-            .wait(Duration.ofMinutes(9))
-            .build();
 
+    private final ConsulLongPoller consulLongPoller;
     private final String compositeStructureRefKey;
-    private final ConsulClient consulClient;
-    private final ConsulSnapshotHandler consulSnapshotHandler;
-    private final ConsulLongPollerFactory pollerFactory;
     private final Object lock = new Object();
 
-    private ConsulLongPoller compositeStructureRefPoller;
-    private ConsulLongPoller compositeStructurePoller;
-    private String currentCompositeStructureConsulPrefix;
-    private boolean stopped = false;
+    private volatile WatchHandle structureRefWatch;
+    private volatile WatchHandle structureWatch;
+    private volatile String currentCompositeStructureConsulPrefix;
+    private volatile boolean stopped = true;
 
-    public CompositeStructureWatcher(String namespace,
-                                     ConsulClient consulClient,
-                                     ConsulSnapshotHandler compositeStructureStateHandler) {
-        this(namespace, consulClient, compositeStructureStateHandler, ConsulLongPollerFactory.defaultFactory());
-    }
-
-    CompositeStructureWatcher(String namespace,
-                              ConsulClient consulClient,
-                              ConsulSnapshotHandler consulSnapshotHandler,
-                              ConsulLongPollerFactory pollerFactory) {
+    @Inject
+    public CompositeStructureWatcher(
+            @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
+            ConsulLongPoller consulLongPoller) {
+        this.consulLongPoller = consulLongPoller;
         this.compositeStructureRefKey = COMPOSITE_STRUCTURE_REF_TEMPLATE.formatted(namespace);
-        this.consulClient = consulClient;
-        this.consulSnapshotHandler = consulSnapshotHandler;
-        this.pollerFactory = pollerFactory;
     }
 
-    void start() {
+    /**
+     * Starts watching for composite structure changes.
+     * <p>
+     * First subscribes to the structureRef key. When its value is received,
+     * subscribes to the actual structure prefix via CDI event handling.
+     */
+    public void start() {
         synchronized (lock) {
-            if (compositeStructureRefPoller != null) {
+            if (!stopped) {
                 log.debug("CompositeWatcher already started, skipping");
                 return;
             }
             stopped = false;
             log.info("CompositeWatcher start. Composite Structure ref key = '{}'", compositeStructureRefKey);
 
-            compositeStructureRefPoller = createPoller(compositeStructureRefKey, this::onCompositeStructureRefSnapshot);
-            compositeStructureRefPoller.start();
+            structureRefWatch = consulLongPoller.startWatchConsulRoot(
+                    compositeStructureRefKey,
+                    CompositeStructureRefConsulUpdateEvent::new
+            );
         }
     }
 
-    void stop() {
+    /**
+     * Stops all watches and cleans up resources.
+     */
+    public void stop() {
         synchronized (lock) {
             stopped = true;
-            if (compositeStructureRefPoller != null) {
-                compositeStructureRefPoller.close();
-                compositeStructureRefPoller = null;
+            if (structureRefWatch != null) {
+                structureRefWatch.cancel();
+                structureRefWatch = null;
             }
-            if (compositeStructurePoller != null) {
-                compositeStructurePoller.close();
-                compositeStructurePoller = null;
+            if (structureWatch != null) {
+                structureWatch.cancel();
+                structureWatch = null;
             }
             currentCompositeStructureConsulPrefix = null;
             log.info("CompositeWatcher stopped.");
         }
     }
 
-    private void onCompositeStructureRefSnapshot(ConsulPrefixSnapshot snapshot) {
-        String compositeStructurePrefix = snapshot.getValue(compositeStructureRefKey);
+    /**
+     * Handles structureRef update events from Consul.
+     * <p>
+     * Extracts the structure prefix from the event and switches the structure watcher if needed.
+     */
+    void onCompositeStructureRefSnapshot(@Observes CompositeStructureRefConsulUpdateEvent event) {
+        synchronized (lock) {
+            if (stopped) {
+                log.debug("Received structureRef event but watcher is stopped, ignoring");
+                return;
+            }
+        }
+
+        String compositeStructurePrefix = extractStructureRef(event);
         log.info("Current composite structure prefix = '{}'", compositeStructurePrefix);
         switchCompositeStructurePoller(compositeStructurePrefix);
+    }
+
+    private String extractStructureRef(CompositeStructureRefConsulUpdateEvent event) {
+        if (event.getValues() == null || event.getValues().isEmpty()) {
+            return null;
+        }
+        // The structureRef key contains a single value - the path to the structure
+        return event.getValues().stream()
+                .filter(gv -> compositeStructureRefKey.equals(gv.getKey()))
+                .map(GetValue::getDecodedValue)
+                .findFirst()
+                .orElse(null);
     }
 
     private void switchCompositeStructurePoller(String newCompositeStructureConsulPrefix) {
@@ -102,9 +127,9 @@ public class CompositeStructureWatcher {
                 log.debug("Composite Structure Consul prefix is unchanged: '{}'", newCompositeStructureConsulPrefix);
                 return;
             }
-            if (compositeStructurePoller != null) {
-                compositeStructurePoller.close();
-                compositeStructurePoller = null;
+            if (structureWatch != null) {
+                structureWatch.cancel();
+                structureWatch = null;
             }
             currentCompositeStructureConsulPrefix = newCompositeStructureConsulPrefix;
 
@@ -115,12 +140,10 @@ public class CompositeStructureWatcher {
 
             log.info("Switching composite structure polling to prefix = '{}'", newCompositeStructureConsulPrefix);
 
-            compositeStructurePoller = createPoller(newCompositeStructureConsulPrefix, consulSnapshotHandler::handle);
-            compositeStructurePoller.start();
+            structureWatch = consulLongPoller.startWatchConsulRoot(
+                    newCompositeStructureConsulPrefix,
+                    CompositeStructureConsulUpdateEvent::new
+            );
         }
-    }
-
-    private ConsulLongPoller createPoller(String path, Consumer<ConsulPrefixSnapshot> onSnapshot) {
-        return pollerFactory.create(path, consulClient, KV_POLL_CONFIG, onSnapshot);
     }
 }

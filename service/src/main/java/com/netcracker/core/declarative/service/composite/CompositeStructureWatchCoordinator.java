@@ -1,7 +1,6 @@
 package com.netcracker.core.declarative.service.composite;
 
 import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
-import com.netcracker.core.declarative.service.composite.consul.ConsulClient;
 import io.quarkus.runtime.Startup;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.annotation.PreDestroy;
@@ -33,12 +32,11 @@ public class CompositeStructureWatchCoordinator {
     @Inject
     public CompositeStructureWatchCoordinator(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
-            ConsulClient consulClient,
-            CompositeStructureSnapshotHandler compositeStructureHandler,
+            CompositeStructureWatcher compositeStructureWatcher,
             ConfigMapClient configMapClient) {
         this.namespace = namespace;
         this.configMapClient = configMapClient;
-        this.compositeStructureWatcher = new CompositeStructureWatcher(namespace, consulClient, compositeStructureHandler);
+        this.compositeStructureWatcher = compositeStructureWatcher;
         this.watcherRunning = new AtomicBoolean(false);
     }
 
