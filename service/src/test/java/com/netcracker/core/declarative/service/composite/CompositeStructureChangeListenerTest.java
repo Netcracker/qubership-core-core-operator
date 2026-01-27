@@ -11,11 +11,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
@@ -71,6 +73,22 @@ class CompositeStructureChangeListenerTest {
         assertThrows(ConsulSnapshotSerializationException.class, () -> listener.onStructureUpdated(event));
 
         verifyNoInteractions(configMapWriter);
+    }
+
+    @Test
+    void handleShouldProcessEmptyValuesList() throws JsonProcessingException {
+        CompositeStructureUpdateEvent event = new CompositeStructureUpdateEvent(Collections.emptyList(), 0);
+
+        listener.onStructureUpdated(event);
+
+        Map<String, String> capturedData = captureConfigMapData();
+        String json = capturedData.get("data");
+        assertNotNull(json);
+
+        JsonNode root = objectMapper.readTree(json);
+        assertEquals(CLOUD_PROVIDER, root.get("cloudProvider").asText());
+        // composite should be empty/null when no values
+        assertFalse(root.has("composite") && root.get("composite").has("baseline"));
     }
 
     @SuppressWarnings("unchecked")

@@ -6,7 +6,6 @@ import com.netcracker.cloud.quarkus.consul.client.ConsulSourceConfig;
 import com.netcracker.cloud.quarkus.consul.client.http.QueryParams;
 import com.netcracker.cloud.quarkus.consul.client.http.Response;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
-import io.quarkus.arc.Arc;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
@@ -15,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -26,28 +24,28 @@ import java.util.concurrent.TimeUnit;
  * On each successful poll with updated data, fires a CDI event via {@link ConsulUpdateEventFactory}.
  * Automatically retries with a delay on errors.
  * <p>
- * Returns a {@link LongPoolSession} that can be used to cancel the watch loop.
+ * Returns a {@link LongPollSession} that can be used to cancel the watch loop.
  */
 @Slf4j
 @ApplicationScoped
 public class ConsulLongPoller {
 
-    private static final int DEFAULT_RETRY_DELAY_MS = 20_000;
-    private static final int DEFAULT_SUCCESS_DELAY_MS = 3_000;
-
     private final TokenStorage tokenStorage;
     private final ConsulClient consulClient;
     private final ConsulSourceConfig consulSourceConfig;
+    private final ConsulLongPollConfig consulLongPollConfig;
     private final Event<ConsulUpdateEvent> event;
 
     @Inject
     public ConsulLongPoller(Instance<TokenStorage> tokenStorage,
                             ConsulClient consulClient,
                             ConsulSourceConfig consulSourceConfig,
+                            ConsulLongPollConfig consulLongPollConfig,
                             Event<ConsulUpdateEvent> event) {
         this.tokenStorage = tokenStorage.get();
         this.consulClient = consulClient;
         this.consulSourceConfig = consulSourceConfig;
+        this.consulLongPollConfig = consulLongPollConfig;
         this.event = event;
     }
 
@@ -59,32 +57,32 @@ public class ConsulLongPoller {
      * @param <T>     the event type
      * @return a handle to cancel the watch
      */
-    public <T extends ConsulUpdateEvent> LongPoolSession startWatchConsulRoot(String root,
+    public <T extends ConsulUpdateEvent> LongPollSession startWatchConsulRoot(String root,
                                                                               ConsulUpdateEventFactory<T> factory) {
-        LongPoolSession longPoolSession = new LongPoolSession();
+        LongPollSession longPollSession = new LongPollSession();
 
-        LongPoolParameters<T> longPoolParameters = new LongPoolParameters<>(root,
+        LongPollParameters<T> longPollParameters = new LongPollParameters<>(root,
                 factory,
                 consulSourceConfig.waitTime(),
-                DEFAULT_RETRY_DELAY_MS,
-                DEFAULT_SUCCESS_DELAY_MS);
+                consulLongPollConfig.consulRetryTime(),
+                consulLongPollConfig.consulOnSuccessDelayTime());
 
-        watchConsulRoot(longPoolParameters, 0, longPoolSession);
+        watchConsulRoot(longPollParameters, 0, longPollSession);
 
-        return longPoolSession;
+        return longPollSession;
     }
 
-    private <T extends ConsulUpdateEvent> void watchConsulRoot(LongPoolParameters<T> param,
+    private <T extends ConsulUpdateEvent> void watchConsulRoot(LongPollParameters<T> param,
                                                                long index,
-                                                               LongPoolSession longPoolSession) {
-        if (longPoolSession.isCancelled()) {
+                                                               LongPollSession longPollSession) {
+        if (longPollSession.isCancelled()) {
             log.debug("Watch for '{}' was cancelled, stopping poll loop", param.root);
             return;
         }
 
         CompletableFuture.supplyAsync(tokenStorage::get)
                 .whenCompleteAsync((String token, Throwable tokenEx) -> {
-                    if (longPoolSession.isCancelled()) {
+                    if (longPollSession.isCancelled()) {
                         log.debug("Watch for '{}' was cancelled after token fetch", param.root);
                         return;
                     }
@@ -92,20 +90,20 @@ public class ConsulLongPoller {
                     if (tokenEx != null) {
                         log.warn("Failed to obtain token from TokenStorage. Error: {}. Retrying after {}",
                                 tokenEx.getMessage(), Duration.ofMillis(param.consulRetryTimeMs));
-                        scheduleNextPoll(param, index, longPoolSession, param.consulRetryTimeMs);
+                        scheduleNextPoll(param, index, longPollSession, param.consulRetryTimeMs);
                     } else {
-                        executePoll(param, index, longPoolSession, token);
+                        executePoll(param, index, longPollSession, token);
                     }
                 });
     }
 
-    private <T extends ConsulUpdateEvent> void executePoll(LongPoolParameters<T> param,
+    private <T extends ConsulUpdateEvent> void executePoll(LongPollParameters<T> param,
                                                            long index,
-                                                           LongPoolSession longPoolSession,
+                                                           LongPollSession longPollSession,
                                                            String token) {
         consulClient.getKVValuesAsync(param.root, token, new QueryParams(param.waitTimeSecs, index))
                 .whenCompleteAsync((response, ex) -> {
-                    if (longPoolSession.isCancelled()) {
+                    if (longPollSession.isCancelled()) {
                         log.debug("Watch for '{}' was cancelled after poll response", param.root);
                         return;
                     }
@@ -136,16 +134,16 @@ public class ConsulLongPoller {
 
                     log.debug("Scheduling next poll for '/kv/{}' with index {} after {}",
                             param.root, nextIndex, Duration.ofMillis(retryTimeMs));
-                    scheduleNextPoll(param, nextIndex, longPoolSession, retryTimeMs);
+                    scheduleNextPoll(param, nextIndex, longPollSession, retryTimeMs);
                 });
     }
 
-    private <T extends ConsulUpdateEvent> void scheduleNextPoll(LongPoolParameters<T> param,
+    private <T extends ConsulUpdateEvent> void scheduleNextPoll(LongPollParameters<T> param,
                                                                 long index,
-                                                                LongPoolSession longPoolSession,
+                                                                LongPollSession longPollSession,
                                                                 long delayMs) {
         CompletableFuture.runAsync(
-                () -> watchConsulRoot(param, index, longPoolSession),
+                () -> watchConsulRoot(param, index, longPollSession),
                 CompletableFuture.delayedExecutor(delayMs, TimeUnit.MILLISECONDS)
         );
     }
@@ -156,11 +154,10 @@ public class ConsulLongPoller {
         event.fire(factory.create(values, consulIndex));
     }
 
-    private record LongPoolParameters<T extends ConsulUpdateEvent>(String root,
+    private record LongPollParameters<T extends ConsulUpdateEvent>(String root,
                                                                    ConsulUpdateEventFactory<T> factory,
                                                                    int waitTimeSecs,
                                                                    int consulRetryTimeMs,
                                                                    int onSuccessDelayTimeMs) {
-
     }
 }
