@@ -1,17 +1,18 @@
 package com.netcracker.core.declarative.service.composite;
 
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
-import com.netcracker.core.declarative.service.composite.consul.longpoll2.CompositeStructureConsulUpdateEvent;
-import com.netcracker.core.declarative.service.composite.consul.longpoll2.CompositeStructureRefConsulUpdateEvent;
-import com.netcracker.core.declarative.service.composite.consul.longpoll2.ConsulLongPoller;
-import com.netcracker.core.declarative.service.composite.consul.longpoll2.ConsulUpdateEventFactory;
-import com.netcracker.core.declarative.service.composite.consul.longpoll2.WatchHandle;
+import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
+import com.netcracker.core.declarative.service.composite.consul.CompositeStructureRefUpdateEvent;
+import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
+import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulUpdateEventFactory;
+import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPoolSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,27 +23,27 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class CompositeStructureWatcherTest {
+class CompositeStructureRefChangeListenerTest {
 
     private static final String NAMESPACE = "ns";
     private static final String STRUCTURE_REF_KEY = "config/ns/application/composite/structureRef";
 
     private ConsulLongPoller consulLongPoller;
-    private WatchHandle refWatchHandle;
-    private WatchHandle structureWatchHandle;
+    private LongPoolSession refLongPoolSession;
+    private LongPoolSession structureLongPoolSession;
 
-    private CompositeStructureWatcher watcher;
+    private CompositeStructureRefChangeListener watcher;
 
     @BeforeEach
     void setUp() {
         consulLongPoller = mock(ConsulLongPoller.class);
-        refWatchHandle = mock(WatchHandle.class);
-        structureWatchHandle = mock(WatchHandle.class);
+        refLongPoolSession = createMockWatchHandle();
+        structureLongPoolSession = createMockWatchHandle();
 
         when(consulLongPoller.startWatchConsulRoot(eq(STRUCTURE_REF_KEY), any()))
-                .thenReturn(refWatchHandle);
+                .thenReturn(refLongPoolSession);
 
-        watcher = new CompositeStructureWatcher(NAMESPACE, consulLongPoller);
+        watcher = new CompositeStructureRefChangeListener(NAMESPACE, consulLongPoller);
     }
 
     @Test
@@ -65,13 +66,13 @@ class CompositeStructureWatcherTest {
         watcher.start();
         watcher.stop();
 
-        verify(refWatchHandle).cancel();
+        verify(refLongPoolSession).cancel();
     }
 
     @Test
     void newPrefixShouldStartStructureWatch() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureWatchHandle);
+                .thenReturn(structureLongPoolSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
@@ -81,63 +82,60 @@ class CompositeStructureWatcherTest {
 
     @Test
     void prefixChangeShouldSwitchWatch() {
-        WatchHandle newStructureWatchHandle = mock(WatchHandle.class);
+        LongPoolSession newStructureLongPoolSession = createMockWatchHandle();
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureWatchHandle);
+                .thenReturn(structureLongPoolSession);
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/two"), any()))
-                .thenReturn(newStructureWatchHandle);
+                .thenReturn(newStructureLongPoolSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("prefix/two");
 
-        verify(structureWatchHandle).cancel();
+        verify(structureLongPoolSession).cancel();
         verify(consulLongPoller).startWatchConsulRoot(eq("prefix/two"), any());
     }
 
     @Test
     void samePrefixShouldNotRestartWatch() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureWatchHandle);
+                .thenReturn(structureLongPoolSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("prefix/one");
 
         verify(consulLongPoller, times(1)).startWatchConsulRoot(eq("prefix/one"), any());
-        verify(structureWatchHandle, never()).cancel();
+        verify(structureLongPoolSession, never()).cancel();
     }
 
     @Test
     void blankPrefixShouldCancelWatch() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureWatchHandle);
+                .thenReturn(structureLongPoolSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("   ");
 
-        verify(structureWatchHandle).cancel();
+        verify(structureLongPoolSession).cancel();
     }
 
     @Test
     void stopShouldCancelAllWatches() {
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureWatchHandle);
+                .thenReturn(structureLongPoolSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         watcher.stop();
 
-        verify(refWatchHandle).cancel();
-        verify(structureWatchHandle).cancel();
+        verify(refLongPoolSession).cancel();
+        verify(structureLongPoolSession).cancel();
     }
 
     @Test
     void eventAfterStopShouldBeIgnored() {
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
-                .thenReturn(structureWatchHandle);
-
         watcher.start();
         watcher.stop();
         simulateRefSnapshot("prefix/one");
@@ -148,19 +146,19 @@ class CompositeStructureWatcherTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldUseCorrectEventFactoryForStructureWatch() {
-        ArgumentCaptor<ConsulUpdateEventFactory<CompositeStructureConsulUpdateEvent>> factoryCaptor =
+        ArgumentCaptor<ConsulUpdateEventFactory<CompositeStructureUpdateEvent>> factoryCaptor =
                 ArgumentCaptor.forClass(ConsulUpdateEventFactory.class);
         when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), factoryCaptor.capture()))
-                .thenReturn(structureWatchHandle);
+                .thenReturn(structureLongPoolSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
 
-        ConsulUpdateEventFactory<CompositeStructureConsulUpdateEvent> factory = factoryCaptor.getValue();
+        ConsulUpdateEventFactory<CompositeStructureUpdateEvent> factory = factoryCaptor.getValue();
         GetValue mockValue = mock(GetValue.class);
-        CompositeStructureConsulUpdateEvent event = factory.create(List.of(mockValue), 123L);
+        CompositeStructureUpdateEvent event = factory.create(List.of(mockValue), 123L);
 
-        assertThat(event).isInstanceOf(CompositeStructureConsulUpdateEvent.class);
+        assertThat(event).isInstanceOf(CompositeStructureUpdateEvent.class);
         assertThat(event.getValues()).containsExactly(mockValue);
         assertThat(event.getConsulIndex()).isEqualTo(123L);
     }
@@ -168,12 +166,26 @@ class CompositeStructureWatcherTest {
     private void simulateRefSnapshot(String prefix) {
         GetValue getValue = mock(GetValue.class);
         when(getValue.getKey()).thenReturn(STRUCTURE_REF_KEY);
-        when(getValue.getValue()).thenReturn(prefix);
+        when(getValue.getDecodedValue()).thenReturn(prefix);
 
-        CompositeStructureRefConsulUpdateEvent event = new CompositeStructureRefConsulUpdateEvent(
+        CompositeStructureRefUpdateEvent event = new CompositeStructureRefUpdateEvent(
                 prefix == null || prefix.isBlank() ? Collections.emptyList() : List.of(getValue),
                 100L
         );
         watcher.onCompositeStructureRefSnapshot(event);
+    }
+
+    /**
+     * Creates a mock WatchHandle that tracks cancelled state properly.
+     */
+    private static LongPoolSession createMockWatchHandle() {
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        LongPoolSession handle = mock(LongPoolSession.class);
+        when(handle.isCancelled()).thenAnswer(inv -> cancelled.get());
+        org.mockito.Mockito.doAnswer(inv -> {
+            cancelled.set(true);
+            return null;
+        }).when(handle).cancel();
+        return handle;
     }
 }

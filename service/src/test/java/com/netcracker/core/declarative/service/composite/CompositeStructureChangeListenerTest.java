@@ -1,11 +1,12 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
-import com.netcracker.core.declarative.service.composite.consul.model.ConsulPrefixSnapshot;
-import com.netcracker.core.declarative.service.composite.consul.model.ConsulSnapshotSerializationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
+import com.netcracker.core.declarative.service.composite.model.ConsulSnapshotSerializationException;
+import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -14,41 +15,38 @@ import java.util.List;
 import java.util.Map;
 
 import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
 
-class CompositeStructureSnapshotHandlerTest {
+class CompositeStructureChangeListenerTest {
 
-    private static final String CLOUD_PROVIDER = "OnPrem";
+    private static final String CLOUD_PROVIDER = "test-provider";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private ConfigMapWriter configMapWriter;
-    private CompositeStructureSnapshotHandler handler;
+    private CompositeStructureChangeListener listener;
 
     @BeforeEach
     void setUp() {
         configMapWriter = mock(ConfigMapWriter.class);
-        handler = new CompositeStructureSnapshotHandler(
+        CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer(CLOUD_PROVIDER);
+        listener = new CompositeStructureChangeListener(
                 objectMapper,
                 configMapWriter,
-                CLOUD_PROVIDER
+                compositeStructureTransformer
         );
     }
 
     @Test
     void handleShouldSerializeSnapshotAndUpdateConfigMap() throws JsonProcessingException {
-        ConsulPrefixSnapshot snapshot = createSnapshot(Map.of(
+        CompositeStructureUpdateEvent event = createEvent(Map.of(
                 "composite/sample/structure/ns-a/compositeRole", "baseline",
                 "composite/sample/structure/ns-b/compositeRole", "satellite"
         ));
 
-        handler.handle(snapshot);
+        listener.onStructureUpdated(event);
 
         Map<String, String> capturedData = captureConfigMapData();
         String json = capturedData.get("data");
@@ -66,11 +64,11 @@ class CompositeStructureSnapshotHandlerTest {
 
     @Test
     void handleShouldThrowOnSerializationError() {
-        ConsulPrefixSnapshot snapshot = createSnapshot(Map.of(
+        CompositeStructureUpdateEvent event = createEvent(Map.of(
                 "composite/sample/structure/ns-a/compositeRole", "INVALID_ROLE"
         ));
 
-        assertThrows(ConsulSnapshotSerializationException.class, () -> handler.handle(snapshot));
+        assertThrows(ConsulSnapshotSerializationException.class, () -> listener.onStructureUpdated(event));
 
         verifyNoInteractions(configMapWriter);
     }
@@ -82,7 +80,7 @@ class CompositeStructureSnapshotHandlerTest {
         return captor.getValue();
     }
 
-    private static ConsulPrefixSnapshot createSnapshot(Map<String, String> keyValues) {
+    private static CompositeStructureUpdateEvent createEvent(Map<String, String> keyValues) {
         List<GetValue> values = keyValues.entrySet().stream()
                 .map(entry -> {
                     GetValue gv = mock(GetValue.class);
@@ -91,6 +89,7 @@ class CompositeStructureSnapshotHandlerTest {
                     return gv;
                 })
                 .toList();
-        return ConsulPrefixSnapshot.fromGetValues(values, 0L);
+        return new CompositeStructureUpdateEvent(values, 0);
     }
+
 }
