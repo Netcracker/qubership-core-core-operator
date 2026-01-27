@@ -45,24 +45,18 @@ public class CompositeStructureRefChangeListener {
         this.compositeStructureRefKey = COMPOSITE_STRUCTURE_REF_TEMPLATE.formatted(namespace);
     }
 
-    /**
-     * Starts watching for composite structure changes.
-     */
     public synchronized void start() {
         if (isRunning()) {
             log.debug("CompositeWatcher already started, skipping");
             return;
         }
         log.info("CompositeWatcher start. Composite Structure ref key = '{}'", compositeStructureRefKey);
-        compositeStructureRefSession = consulLongPoller.startWatchConsulRoot(
+        compositeStructureRefSession = consulLongPoller.startWatch(
                 compositeStructureRefKey,
                 CompositeStructureRefUpdateEvent::new
         );
     }
 
-    /**
-     * Stops all watches and cleans up resources.
-     */
     public synchronized void stop() {
         cancelWatch(compositeStructureRefSession);
         cancelWatch(compositeStructureSession);
@@ -72,10 +66,7 @@ public class CompositeStructureRefChangeListener {
         log.info("CompositeWatcher stopped.");
     }
 
-    /**
-     * Handles structureRef update events from Consul.
-     */
-    synchronized void onCompositeStructureRefSnapshot(@Observes CompositeStructureRefUpdateEvent event) {
+    synchronized void onCompositeStructureRefUpdated(@Observes CompositeStructureRefUpdateEvent event) {
         if (!isRunning()) {
             log.debug("Received structureRef event but watcher is stopped, ignoring");
             return;
@@ -105,7 +96,7 @@ public class CompositeStructureRefChangeListener {
         }
 
         log.info("Switching composite structure polling to prefix = '{}'", newPrefix);
-        compositeStructureSession = consulLongPoller.startWatchConsulRoot(
+        compositeStructureSession = consulLongPoller.startWatch(
                 newPrefix,
                 CompositeStructureUpdateEvent::new
         );

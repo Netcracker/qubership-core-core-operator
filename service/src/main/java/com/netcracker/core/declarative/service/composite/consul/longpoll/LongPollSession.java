@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Thread-safe. Once cancelled, the associated poll loop will terminate
  * after completing its current cycle.
  *
- * @see ConsulLongPoller#startWatchConsulRoot
+ * @see ConsulLongPoller#startWatch
  */
 public class LongPollSession {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);

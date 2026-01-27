@@ -57,8 +57,8 @@ public class ConsulLongPoller {
      * @param <T>     the event type
      * @return a handle to cancel the watch
      */
-    public <T extends ConsulUpdateEvent> LongPollSession startWatchConsulRoot(String root,
-                                                                              ConsulUpdateEventFactory<T> factory) {
+    public <T extends ConsulUpdateEvent> LongPollSession startWatch(String root,
+                                                                    ConsulUpdateEventFactory<T> factory) {
         LongPollSession longPollSession = new LongPollSession();
 
         LongPollParameters<T> longPollParameters = new LongPollParameters<>(root,
@@ -67,14 +67,14 @@ public class ConsulLongPoller {
                 consulLongPollConfig.consulRetryTime(),
                 consulLongPollConfig.consulOnSuccessDelayTime());
 
-        watchConsulRoot(longPollParameters, 0, longPollSession);
+        pollLoop(longPollParameters, 0, longPollSession);
 
         return longPollSession;
     }
 
-    private <T extends ConsulUpdateEvent> void watchConsulRoot(LongPollParameters<T> param,
-                                                               long index,
-                                                               LongPollSession longPollSession) {
+    private <T extends ConsulUpdateEvent> void pollLoop(LongPollParameters<T> param,
+                                                        long index,
+                                                        LongPollSession longPollSession) {
         if (longPollSession.isCancelled()) {
             log.debug("Watch for '{}' was cancelled, stopping poll loop", param.root);
             return;
@@ -143,7 +143,7 @@ public class ConsulLongPoller {
                                                                 LongPollSession longPollSession,
                                                                 long delayMs) {
         CompletableFuture.runAsync(
-                () -> watchConsulRoot(param, index, longPollSession),
+                () -> pollLoop(param, index, longPollSession),
                 CompletableFuture.delayedExecutor(delayMs, TimeUnit.MILLISECONDS)
         );
     }

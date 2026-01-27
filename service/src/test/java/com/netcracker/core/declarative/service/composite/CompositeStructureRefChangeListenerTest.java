@@ -40,7 +40,7 @@ class CompositeStructureRefChangeListenerTest {
         refLongPollSession = createMockWatchHandle();
         structureLongPollSession = createMockWatchHandle();
 
-        when(consulLongPoller.startWatchConsulRoot(eq(STRUCTURE_REF_KEY), any()))
+        when(consulLongPoller.startWatch(eq(STRUCTURE_REF_KEY), any()))
                 .thenReturn(refLongPollSession);
 
         watcher = new CompositeStructureRefChangeListener(NAMESPACE, consulLongPoller);
@@ -50,7 +50,7 @@ class CompositeStructureRefChangeListenerTest {
     void startShouldCreateAndStartRefWatch() {
         watcher.start();
 
-        verify(consulLongPoller).startWatchConsulRoot(eq(STRUCTURE_REF_KEY), any());
+        verify(consulLongPoller).startWatch(eq(STRUCTURE_REF_KEY), any());
     }
 
     @Test
@@ -58,7 +58,7 @@ class CompositeStructureRefChangeListenerTest {
         watcher.start();
         watcher.start();
 
-        verify(consulLongPoller, times(1)).startWatchConsulRoot(eq(STRUCTURE_REF_KEY), any());
+        verify(consulLongPoller, times(1)).startWatch(eq(STRUCTURE_REF_KEY), any());
     }
 
     @Test
@@ -71,21 +71,21 @@ class CompositeStructureRefChangeListenerTest {
 
     @Test
     void newPrefixShouldStartStructureWatch() {
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
+        when(consulLongPoller.startWatch(eq("prefix/one"), any()))
                 .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
 
-        verify(consulLongPoller).startWatchConsulRoot(eq("prefix/one"), any());
+        verify(consulLongPoller).startWatch(eq("prefix/one"), any());
     }
 
     @Test
     void prefixChangeShouldSwitchWatch() {
         LongPollSession newStructureLongPollSession = createMockWatchHandle();
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
+        when(consulLongPoller.startWatch(eq("prefix/one"), any()))
                 .thenReturn(structureLongPollSession);
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/two"), any()))
+        when(consulLongPoller.startWatch(eq("prefix/two"), any()))
                 .thenReturn(newStructureLongPollSession);
 
         watcher.start();
@@ -93,25 +93,25 @@ class CompositeStructureRefChangeListenerTest {
         simulateRefSnapshot("prefix/two");
 
         verify(structureLongPollSession).cancel();
-        verify(consulLongPoller).startWatchConsulRoot(eq("prefix/two"), any());
+        verify(consulLongPoller).startWatch(eq("prefix/two"), any());
     }
 
     @Test
     void samePrefixShouldNotRestartWatch() {
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
+        when(consulLongPoller.startWatch(eq("prefix/one"), any()))
                 .thenReturn(structureLongPollSession);
 
         watcher.start();
         simulateRefSnapshot("prefix/one");
         simulateRefSnapshot("prefix/one");
 
-        verify(consulLongPoller, times(1)).startWatchConsulRoot(eq("prefix/one"), any());
+        verify(consulLongPoller, times(1)).startWatch(eq("prefix/one"), any());
         verify(structureLongPollSession, never()).cancel();
     }
 
     @Test
     void blankPrefixShouldCancelWatch() {
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
+        when(consulLongPoller.startWatch(eq("prefix/one"), any()))
                 .thenReturn(structureLongPollSession);
 
         watcher.start();
@@ -123,7 +123,7 @@ class CompositeStructureRefChangeListenerTest {
 
     @Test
     void stopShouldCancelAllWatches() {
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), any()))
+        when(consulLongPoller.startWatch(eq("prefix/one"), any()))
                 .thenReturn(structureLongPollSession);
 
         watcher.start();
@@ -140,7 +140,7 @@ class CompositeStructureRefChangeListenerTest {
         watcher.stop();
         simulateRefSnapshot("prefix/one");
 
-        verify(consulLongPoller, never()).startWatchConsulRoot(eq("prefix/one"), any());
+        verify(consulLongPoller, never()).startWatch(eq("prefix/one"), any());
     }
 
     @Test
@@ -148,7 +148,7 @@ class CompositeStructureRefChangeListenerTest {
     void shouldUseCorrectEventFactoryForStructureWatch() {
         ArgumentCaptor<ConsulUpdateEventFactory<CompositeStructureUpdateEvent>> factoryCaptor =
                 ArgumentCaptor.forClass(ConsulUpdateEventFactory.class);
-        when(consulLongPoller.startWatchConsulRoot(eq("prefix/one"), factoryCaptor.capture()))
+        when(consulLongPoller.startWatch(eq("prefix/one"), factoryCaptor.capture()))
                 .thenReturn(structureLongPollSession);
 
         watcher.start();
@@ -172,7 +172,7 @@ class CompositeStructureRefChangeListenerTest {
                 prefix == null || prefix.isBlank() ? Collections.emptyList() : List.of(getValue),
                 100L
         );
-        watcher.onCompositeStructureRefSnapshot(event);
+        watcher.onCompositeStructureRefUpdated(event);
     }
 
     /**

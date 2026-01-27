@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
-import com.netcracker.core.declarative.service.composite.model.ConsulSnapshotSerializationException;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -16,10 +16,8 @@ import java.util.Map;
 import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
 
 /**
- * Listens for composite structure update events.
- * Transforms Consul composite structure snapshots into ConfigMap.
- * Enriches the composite structure with cloud provider metadata and serializes to JSON
- * for storage in the {@code composite-structure} ConfigMap.
+ * Handles {@link CompositeStructureUpdateEvent} by transforming Consul data
+ * and persisting it to the {@code composite-structure} ConfigMap.
  */
 @ApplicationScoped
 @Slf4j
@@ -47,7 +45,7 @@ public class CompositeStructureChangeListener {
             Map<String, String> compositeStructureContent = Map.of(CONFIG_MAP_DATA_KEY, json);
             configMapWriter.requestUpdate(CONFIG_MAP_NAME, compositeStructureContent);
         } catch (JsonProcessingException e) {
-            throw new ConsulSnapshotSerializationException("Failed to serialize composite structure to JSON", e);
+            throw new CompositeStructureParseException("Failed to serialize composite structure to JSON", e);
         }
     }
 }

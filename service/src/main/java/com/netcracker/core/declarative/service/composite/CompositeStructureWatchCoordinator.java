@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * If managed, starts the {@link CompositeStructureRefChangeListener}; otherwise stops it.
  * This allows another operator to take over ConfigMap management when needed.
  * <p>
- * The feature can be disabled via {@code composite-structure.sync.enabled=false}.
+ * The feature can be disabled via {@code cloud.composite.structure.sync.enabled=false}.
  */
 @ApplicationScoped
 @Startup
@@ -45,9 +45,6 @@ public class CompositeStructureWatchCoordinator {
         this.watcherRunning = new AtomicBoolean(false);
     }
 
-    /**
-     * Periodically checks ConfigMap management status every 5 minutes.
-     */
     @Scheduled(every = "5m", concurrentExecution = Scheduled.ConcurrentExecution.SKIP, delayed = "0s")
     void ensureWatcherState() {
         if (!featureEnabled) {

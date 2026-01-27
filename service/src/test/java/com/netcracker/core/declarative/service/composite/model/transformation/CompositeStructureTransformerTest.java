@@ -4,11 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
-import com.netcracker.core.declarative.service.composite.model.ConsulSnapshotSerializationException;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -167,7 +166,7 @@ class CompositeStructureTransformerTest {
                 .toList();
 
         assertThatThrownBy(() -> compositeStructureTransformer.transform(values))
-                .isInstanceOf(ConsulSnapshotSerializationException.class)
+                .isInstanceOf(CompositeStructureParseException.class)
                 .hasMessageContaining("blue-green role");
     }
 
@@ -187,7 +186,7 @@ class CompositeStructureTransformerTest {
                 .toList();
 
         assertThatThrownBy(() -> compositeStructureTransformer.transform(values))
-                .isInstanceOf(ConsulSnapshotSerializationException.class)
+                .isInstanceOf(CompositeStructureParseException.class)
                 .hasMessageContaining("composite role");
     }
 

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
-import com.netcracker.core.declarative.service.composite.model.ConsulSnapshotSerializationException;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,6 @@ import java.util.Map;
 
 import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
@@ -70,7 +69,7 @@ class CompositeStructureChangeListenerTest {
                 "composite/sample/structure/ns-a/compositeRole", "INVALID_ROLE"
         ));
 
-        assertThrows(ConsulSnapshotSerializationException.class, () -> listener.onStructureUpdated(event));
+        assertThrows(CompositeStructureParseException.class, () -> listener.onStructureUpdated(event));
 
         verifyNoInteractions(configMapWriter);
     }
