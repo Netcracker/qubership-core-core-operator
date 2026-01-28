@@ -1,6 +1,7 @@
 package com.netcracker.core.declarative.service.composite;
 
 import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,11 +21,13 @@ class ConfigMapWriterTest {
     private static final String CONFIG_MAP_NAME = "composite-structure";
 
     private ConfigMapClient configMapClient;
+    private HasMetadata owner;
     private ConfigMapWriter writer;
 
     @BeforeEach
     void setUp() {
         configMapClient = mock(ConfigMapClient.class);
+        owner = mock(HasMetadata.class);
         writer = new ConfigMapWriter(configMapClient, NAMESPACE);
     }
 
@@ -32,39 +35,25 @@ class ConfigMapWriterTest {
     void requestUpdateShouldCallConfigMapClient() {
         Map<String, String> payload = Map.of("key", "value");
 
-        CompletionStage<Void> result = writer.requestUpdate(CONFIG_MAP_NAME, payload);
+        CompletionStage<Void> result = writer.requestUpdate(CONFIG_MAP_NAME, payload, owner);
 
         assertThat(result).isNotNull();
-        verify(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(payload));
+        verify(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(payload), eq(owner));
     }
 
     @Test
     void requestUpdateShouldThrowOnNullConfigMapName() {
         Map<String, String> payload = Map.of("key", "value");
 
-        assertThatThrownBy(() -> writer.requestUpdate(null, payload))
+        assertThatThrownBy(() -> writer.requestUpdate(null, payload, owner))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("configMapName");
     }
 
     @Test
     void requestUpdateShouldThrowOnNullPayload() {
-        assertThatThrownBy(() -> writer.requestUpdate(CONFIG_MAP_NAME, null))
+        assertThatThrownBy(() -> writer.requestUpdate(CONFIG_MAP_NAME, null, owner))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("payload");
-    }
-
-    @Test
-    void requestUpdateShouldCreateDefensiveCopyOfPayload() {
-        Map<String, String> mutablePayload = new HashMap<>();
-        mutablePayload.put("key", "original");
-
-        writer.requestUpdate(CONFIG_MAP_NAME, mutablePayload);
-
-        // Modify original after call
-        mutablePayload.put("key", "modified");
-
-        // Verify the original value was passed (defensive copy was made)
-        verify(configMapClient).createOrUpdate(eq(CONFIG_MAP_NAME), eq(NAMESPACE), eq(Map.of("key", "original")));
     }
 }

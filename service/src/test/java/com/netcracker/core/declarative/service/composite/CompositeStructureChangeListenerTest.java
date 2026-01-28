@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
@@ -14,8 +15,9 @@ import org.mockito.ArgumentCaptor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
-import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
+import static com.netcracker.core.declarative.service.composite.CompositeStructureWatcher.CONFIG_MAP_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -32,11 +34,15 @@ class CompositeStructureChangeListenerTest {
     @BeforeEach
     void setUp() {
         configMapWriter = mock(ConfigMapWriter.class);
+        when(configMapWriter.requestUpdate(any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        CompositeCRHolder compositeCRHolder = mock(CompositeCRHolder.class);
         CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer(CLOUD_PROVIDER);
         listener = new CompositeStructureChangeListener(
                 objectMapper,
                 configMapWriter,
-                compositeStructureTransformer
+                compositeStructureTransformer,
+                compositeCRHolder
         );
     }
 
@@ -93,7 +99,7 @@ class CompositeStructureChangeListenerTest {
     @SuppressWarnings("unchecked")
     private Map<String, String> captureConfigMapData() {
         ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(configMapWriter).requestUpdate(eq(CONFIG_MAP_NAME), captor.capture());
+        verify(configMapWriter).requestUpdate(eq(CONFIG_MAP_NAME), captor.capture(), any());
         return captor.getValue();
     }
 

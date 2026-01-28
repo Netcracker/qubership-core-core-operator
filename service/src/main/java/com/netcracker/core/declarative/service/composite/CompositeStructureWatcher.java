@@ -1,125 +1,122 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
-import com.netcracker.core.declarative.service.composite.consul.CompositeStructureRefUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
+import io.quarkus.scheduler.Scheduler;
 import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-
-import java.util.Objects;
 
 /**
  * Watches Consul for composite structure changes using long-polling.
  * <p>
- * Monitors two Consul paths:
- * <ol>
- *   <li>{@code config/{namespace}/application/composite/structureRef} - reference to the current composite structure prefix</li>
- *   <li>The prefix itself - actual composite structure data</li>
- * </ol>
- * When the structure reference changes, automatically switches to watching the new prefix.
+ * Periodically checks if the {@value #CONFIG_MAP_NAME} ConfigMap is managed by core-operator.
+ * If managed, starts watching the Consul path {@code composite/{compositeId}/structure};
+ * otherwise stops watching. This allows another operator to take over ConfigMap management when needed.
+ * <p>
  * Structure updates are handled by {@link CompositeStructureChangeListener}.
+ * <p>
+ * The feature can be disabled via {@code cloud.composite.structure.sync.enabled=false}.
+ * <p>
+ * Call {@link #start(String)} to begin watching. This schedules periodic ownership checks.
  */
-@ApplicationScoped
+@Singleton
 @Slf4j
 public class CompositeStructureWatcher {
-
-    private static final String COMPOSITE_STRUCTURE_REF_TEMPLATE = "config/%s/application/composite/structureRef";
+    public static final String CONFIG_MAP_NAME = "composite-structure";
+    private static final String JOB_IDENTITY = "composite-structure-watcher";
+    private static final String CHECK_INTERVAL = "5m";
+    private static final String COMPOSITE_STRUCTURE_KEY_TEMPLATE = "composite/%s/structure";
 
     private final ConsulLongPoller consulLongPoller;
-    private final String compositeStructureRefKey;
+    private final ConfigMapClient configMapClient;
+    private final Scheduler scheduler;
+    private final String namespace;
+    private final boolean featureEnabled;
 
-    private LongPollSession compositeStructureRefSession;
-    private LongPollSession compositeStructureSession;
-    private String currentCompositeStructurePrefix;
+    private LongPollSession longPollSession;
+    private boolean started;
 
     @Inject
     public CompositeStructureWatcher(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
-            ConsulLongPoller consulLongPoller) {
+            @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
+            ConsulLongPoller consulLongPoller,
+            ConfigMapClient configMapClient,
+            Scheduler scheduler) {
         this.consulLongPoller = consulLongPoller;
-        this.compositeStructureRefKey = COMPOSITE_STRUCTURE_REF_TEMPLATE.formatted(namespace);
+        this.configMapClient = configMapClient;
+        this.scheduler = scheduler;
+        this.namespace = namespace;
+        this.featureEnabled = featureEnabled;
     }
 
-    public synchronized void start() {
-        if (isRunning()) {
-            log.debug("CompositeWatcher already started, skipping");
+    /**
+     * Starts the watcher and schedules periodic ownership checks.
+     * <p>
+     * This method is idempotent - calling it multiple times has no effect.
+     *
+     * @param compositeId the composite ID to watch
+     */
+    public void start(String compositeId) {
+        if (started) {
             return;
         }
-        log.info("CompositeWatcher start. Composite Structure ref key = '{}'", compositeStructureRefKey);
-        compositeStructureRefSession = consulLongPoller.startWatch(
-                compositeStructureRefKey,
-                CompositeStructureRefUpdateEvent::new
-        );
-    }
-
-    public synchronized void stop() {
-        cancelWatch(compositeStructureRefSession);
-        cancelWatch(compositeStructureSession);
-        compositeStructureRefSession = null;
-        compositeStructureSession = null;
-        currentCompositeStructurePrefix = null;
-        log.info("CompositeWatcher stopped.");
-    }
-
-    synchronized void onCompositeStructureRefUpdated(@Observes CompositeStructureRefUpdateEvent event) {
-        if (!isRunning()) {
-            log.debug("Received structureRef event but watcher is stopped, ignoring");
+        if (compositeId == null || compositeId.isBlank()) {
+            log.warn("Cannot start CompositeStructureWatcher: compositeId is null or blank");
             return;
         }
 
-        String newPrefix = extractCompositeStructurePrefix(event);
-        log.info("Current composite structure prefix = '{}'", newPrefix);
-        switchCompositeStructureWatch(newPrefix);
+        log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
+        started = true;
+
+        scheduler.newJob(JOB_IDENTITY)
+                .setInterval(CHECK_INTERVAL)
+                .setTask(execution -> ensureWatchState(compositeId))
+                .schedule();
     }
 
-    private synchronized void switchCompositeStructureWatch(String newPrefix) {
-        if (!isRunning()) {
-            return;
-        }
-        if (Objects.equals(currentCompositeStructurePrefix, newPrefix)) {
-            log.debug("Composite Structure Consul prefix is unchanged: '{}'", newPrefix);
-            return;
-        }
-
-        cancelWatch(compositeStructureSession);
-        compositeStructureSession = null;
-        currentCompositeStructurePrefix = newPrefix;
-
-        if (newPrefix == null || newPrefix.isBlank()) {
-            log.warn("structureRef empty — structure polling paused.");
+    private void ensureWatchState(String compositeId) {
+        if (!featureEnabled) {
+            log.debug("Composite structure sync is disabled by configuration.");
+            stopLongPoll();
             return;
         }
 
-        log.info("Switching composite structure polling to prefix = '{}'", newPrefix);
-        compositeStructureSession = consulLongPoller.startWatch(
-                newPrefix,
-                CompositeStructureUpdateEvent::new
-        );
-    }
-
-    private boolean isRunning() {
-        return compositeStructureRefSession != null && !compositeStructureRefSession.isCancelled();
-    }
-
-    private void cancelWatch(LongPollSession watch) {
-        if (watch != null) {
-            watch.cancel();
+        try {
+            boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
+            if (shouldManage) {
+                startLongPoll(compositeId);
+            } else {
+                log.info("Composite structure watching is disabled because '{}' is not managed by core-operator.", CONFIG_MAP_NAME);
+                stopLongPoll();
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Failed to verify management state for '{}'. Retrying on next schedule.", CONFIG_MAP_NAME, ex);
         }
     }
 
-    private String extractCompositeStructurePrefix(CompositeStructureRefUpdateEvent event) {
-        if (event.getValues() == null || event.getValues().isEmpty()) {
-            return null;
+    private void startLongPoll(String compositeId) {
+        if (isLongPollRunning()) {
+            return;
         }
-        return event.getValues().stream()
-                .filter(gv -> compositeStructureRefKey.equals(gv.getKey()))
-                .map(GetValue::getDecodedValue)
-                .findFirst()
-                .orElse(null);
+        String compositeStructureKey = COMPOSITE_STRUCTURE_KEY_TEMPLATE.formatted(compositeId);
+        log.info("Starting Consul long-poll for key '{}'", compositeStructureKey);
+        longPollSession = consulLongPoller.startWatch(compositeStructureKey, CompositeStructureUpdateEvent::new);
+    }
+
+    private void stopLongPoll() {
+        if (longPollSession != null) {
+            longPollSession.cancel();
+            longPollSession = null;
+            log.info("Consul long-poll stopped.");
+        }
+    }
+
+    private boolean isLongPollRunning() {
+        return longPollSession != null && !longPollSession.isCancelled();
     }
 }

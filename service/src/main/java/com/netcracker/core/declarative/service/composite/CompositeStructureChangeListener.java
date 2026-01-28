@@ -2,6 +2,8 @@ package com.netcracker.core.declarative.service.composite;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.core.declarative.resources.composite.Composite;
+import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
@@ -13,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 
-import static com.netcracker.core.declarative.service.composite.CompositeStructureWatchCoordinator.CONFIG_MAP_NAME;
+import static com.netcracker.core.declarative.service.composite.CompositeStructureWatcher.CONFIG_MAP_NAME;
 
 /**
  * Handles {@link CompositeStructureUpdateEvent} by transforming Consul data
@@ -27,14 +29,17 @@ public class CompositeStructureChangeListener {
     private final ObjectMapper objectMapper;
     private final ConfigMapWriter configMapWriter;
     private final CompositeStructureTransformer compositeStructureTransformer;
+    private final CompositeCRHolder compositeCRHolder;
 
     @Inject
     public CompositeStructureChangeListener(ObjectMapper objectMapper,
                                             ConfigMapWriter configMapWriter,
-                                            CompositeStructureTransformer compositeStructureTransformer) {
+                                            CompositeStructureTransformer compositeStructureTransformer,
+                                            CompositeCRHolder compositeCRHolder) {
         this.objectMapper = objectMapper;
         this.configMapWriter = configMapWriter;
         this.compositeStructureTransformer = compositeStructureTransformer;
+        this.compositeCRHolder = compositeCRHolder;
     }
 
     void onStructureUpdated(@Observes CompositeStructureUpdateEvent event) {
@@ -43,7 +48,14 @@ public class CompositeStructureChangeListener {
             CompositeStructureConfigMapPayload payload = compositeStructureTransformer.transform(event.getValues());
             String json = objectMapper.writeValueAsString(payload);
             Map<String, String> compositeStructureContent = Map.of(CONFIG_MAP_DATA_KEY, json);
-            configMapWriter.requestUpdate(CONFIG_MAP_NAME, compositeStructureContent);
+
+            Composite composite = compositeCRHolder.get();
+
+            configMapWriter.requestUpdate(CONFIG_MAP_NAME, compositeStructureContent, composite)
+                    .exceptionally(ex -> {
+                        log.error("Failed to update ConfigMap '{}' after all retries", CONFIG_MAP_NAME, ex);
+                        return null;
+                    });
         } catch (JsonProcessingException e) {
             throw new CompositeStructureParseException("Failed to serialize composite structure to JSON", e);
         }
