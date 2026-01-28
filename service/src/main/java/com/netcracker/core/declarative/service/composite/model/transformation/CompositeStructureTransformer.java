@@ -11,6 +11,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 /**
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
  */
 @ApplicationScoped
 public class CompositeStructureTransformer {
-    private static final Pattern STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/([^/]+)/([^/]+)$");
+    private static final Pattern COMPOSITE_STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/(?<namespace>[^/]+)/(?<attribute>[^/]+)$");
     private static final String DEFAULT_CLOUD_PROVIDER = "OnPrem";
 
     private final String cloudProvider;
@@ -40,19 +41,14 @@ public class CompositeStructureTransformer {
     }
 
     private List<Namespace> parseNamespaces(List<GetValue> values) {
-        Map<String, Map<String, String>> attributesByNamespace = values.stream()
-                .sorted(Comparator.comparing(GetValue::getKey))
-                .map(gv -> {
-                    Matcher m = STRUCTURE_ENTRY_PATTERN.matcher(gv.getKey());
-                    return m.matches() ? new ParsedEntry(m.group(1), m.group(2), gv.getDecodedValue()) : null;
-                })
+        return values.stream()
+                .map(CompositeStructureTransformer::getParsedEntry)
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(
                         ParsedEntry::namespace,
-                        LinkedHashMap::new,
-                        Collectors.toMap(ParsedEntry::attribute, ParsedEntry::value, (v1, v2) -> v2)));
-
-        return attributesByNamespace.entrySet().stream()
+                        Collectors.toMap(ParsedEntry::attribute, ParsedEntry::value, (v1, v2) -> v2)))
+                .entrySet()
+                .stream()
                 .map(entry -> buildNamespace(entry.getKey(), entry.getValue()))
                 .toList();
     }
@@ -119,12 +115,7 @@ public class CompositeStructureTransformer {
         String peer = findNamespaceByBlueGreenRole(namespaceEntries, BlueGreenRole.PEER);
 
         if (origin == null) {
-            origin = namespaceEntries.stream()
-                    .filter(entry -> entry.blueGreenRole() == null)
-                    .map(Namespace::name)
-                    .sorted()
-                    .findFirst()
-                    .orElse(null);
+            origin = findNamespaceByBlueGreenRole(namespaceEntries, null);
         }
 
         if (controller == null && origin == null && peer == null) {
@@ -138,9 +129,23 @@ public class CompositeStructureTransformer {
         return namespaces.stream()
                 .filter(entry -> entry.blueGreenRole() == blueGreenRole)
                 .map(Namespace::name)
-                .min(Comparator.naturalOrder())
-                .orElse(null);
+                .collect(toUniqueOrNull("Multiple namespaces with the same blue-green role '" + blueGreenRole + "'"));
     }
+
+    private static ParsedEntry getParsedEntry(GetValue gv) {
+        Matcher m = COMPOSITE_STRUCTURE_ENTRY_PATTERN.matcher(gv.getKey());
+        return m.matches() ? new ParsedEntry(m.group("namespace"), m.group("attribute"), gv.getDecodedValue()) : null;
+    }
+
+    private static Collector<String, ?, String> toUniqueOrNull(String errorMessage) {
+        return Collectors.collectingAndThen(Collectors.toList(), list -> {
+            if (list.size() > 1) {
+                throw new CompositeStructureParseException(errorMessage + ": " + list);
+            }
+            return list.isEmpty() ? null : list.getFirst();
+        });
+    }
+
 
     private record ParsedEntry(String namespace, String attribute, String value) {}
 

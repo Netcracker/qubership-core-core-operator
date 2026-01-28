@@ -35,7 +35,8 @@ class CompositeStructureTransformerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"origin\":\"bs-origin\"}}}",
+        assertEquals("""
+                        {"cloudProvider":"test-provider","composite":{"baseline":{"origin":"bs-origin"}}}""",
                 json);
     }
 
@@ -54,7 +55,8 @@ class CompositeStructureTransformerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"}}}",
+        assertEquals("""
+                        {"cloudProvider":"test-provider","composite":{"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"}}}""",
                 json);
     }
 
@@ -68,7 +70,8 @@ class CompositeStructureTransformerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"origin\":\"bs-origin\"},\"satellites\":[{\"origin\":\"st-1-origin\"},{\"origin\":\"st-2-origin\"}]}}",
+        assertEquals("""
+                        {"cloudProvider":"test-provider","composite":{"baseline":{"origin":"bs-origin"},"satellites":[{"origin":"st-1-origin"},{"origin":"st-2-origin"}]}}""",
                 json);
     }
 
@@ -103,7 +106,8 @@ class CompositeStructureTransformerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"controller\":\"st-2-controller\",\"origin\":\"st-2-origin\",\"peer\":\"st-2-peer\"}]}}",
+        assertEquals("""
+                        {"cloudProvider":"test-provider","composite":{"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"},"satellites":[{"controller":"st-1-controller","origin":"st-1-origin","peer":"st-1-peer"},{"controller":"st-2-controller","origin":"st-2-origin","peer":"st-2-peer"}]}}""",
                 json);
     }
 
@@ -131,7 +135,8 @@ class CompositeStructureTransformerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"controller\":\"bs-controller\",\"origin\":\"bs-origin\",\"peer\":\"bs-peer\"},\"satellites\":[{\"controller\":\"st-1-controller\",\"origin\":\"st-1-origin\",\"peer\":\"st-1-peer\"},{\"origin\":\"st-2-origin\"}]}}",
+        assertEquals("""
+                        {"cloudProvider":"test-provider","composite":{"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"},"satellites":[{"controller":"st-1-controller","origin":"st-1-origin","peer":"st-1-peer"},{"origin":"st-2-origin"}]}}""",
                 json);
     }
 
@@ -145,7 +150,8 @@ class CompositeStructureTransformerTest {
 
         String json = serialize(keyValues);
 
-        assertEquals("{\"cloudProvider\":\"test-provider\",\"composite\":{\"baseline\":{\"origin\":\"bs-origin\"}}}",
+        assertEquals("""
+                        {"cloudProvider":"test-provider","composite":{"baseline":{"origin":"bs-origin"}}}""",
                 json);
     }
 
@@ -188,6 +194,54 @@ class CompositeStructureTransformerTest {
         assertThatThrownBy(() -> compositeStructureTransformer.transform(values))
                 .isInstanceOf(CompositeStructureParseException.class)
                 .hasMessageContaining("composite role");
+    }
+
+    @Test
+    void shouldThrowOnSeveralNamespacesWithOneBlueGreenRole() {
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
+            put("composite/bs-origin/structure/bs-controller/bluegreenRole", "controller");
+            put("composite/bs-origin/structure/bs-controller/compositeRole", "baseline");
+            put("composite/bs-origin/structure/bs-origin/bluegreenRole", "origin");
+            put("composite/bs-origin/structure/bs-origin/compositeRole", "baseline");
+            put("composite/bs-origin/structure/bs-origin/controllerNamespace", "bs-controller");
+            put("composite/bs-origin/structure/bs-peer/bluegreenRole", "origin");
+            put("composite/bs-origin/structure/bs-peer/compositeRole", "baseline");
+            put("composite/bs-origin/structure/bs-peer/controllerNamespace", "bs-controller");
+        }};
+
+        List<GetValue> values = keyValues.entrySet().stream()
+                .map(entry -> {
+                    GetValue gv = mock(GetValue.class);
+                    when(gv.getKey()).thenReturn(entry.getKey());
+                    when(gv.getDecodedValue()).thenReturn(entry.getValue());
+                    return gv;
+                })
+                .toList();
+
+        assertThatThrownBy(() -> compositeStructureTransformer.transform(values))
+                .isInstanceOf(CompositeStructureParseException.class)
+                .hasMessageContaining("Multiple namespaces with the same blue-green role");
+    }
+
+    @Test
+    void shouldThrowOnSeveralNamespacesWithoutBlueGreenRole() {
+        Map<String, String> keyValues = new LinkedHashMap<>() {{
+            put("composite/bs-origin/structure/bs-one/compositeRole", "baseline");
+            put("composite/bs-origin/structure/bs-two/compositeRole", "baseline");
+        }};
+
+        List<GetValue> values = keyValues.entrySet().stream()
+                .map(entry -> {
+                    GetValue gv = mock(GetValue.class);
+                    when(gv.getKey()).thenReturn(entry.getKey());
+                    when(gv.getDecodedValue()).thenReturn(entry.getValue());
+                    return gv;
+                })
+                .toList();
+
+        assertThatThrownBy(() -> compositeStructureTransformer.transform(values))
+                .isInstanceOf(CompositeStructureParseException.class)
+                .hasMessageContaining("Multiple namespaces with the same blue-green role");
     }
 
     private String serialize(Map<String, String> keyValues) {
