@@ -1,8 +1,6 @@
 package com.netcracker.core.declarative.client.k8s;
 
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
+import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -40,6 +38,17 @@ public class ConfigMapClient {
     public void createOrUpdate(String name,
                                String namespace,
                                Map<String, String> data) {
+        createOrUpdate(name, namespace, data, null);
+    }
+
+    /**
+     * Creates or updates a ConfigMap if it is managed by core-operator (or does not exist yet).
+     * Merges existing labels with core-operator ownership labels.
+     */
+    public void createOrUpdate(String name,
+                               String namespace,
+                               Map<String, String> data,
+                               HasMetadata owner) {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(namespace, "namespace");
         Objects.requireNonNull(data, "data");
@@ -56,11 +65,24 @@ public class ConfigMapClient {
 
         Map<String, String> effectiveLabels = resolveConfigMapLabels(existingConfigMap);
 
+        OwnerReference ownerReference = null;
+        if (owner != null) {
+            ownerReference = new OwnerReferenceBuilder()
+                    .withApiVersion(owner.getApiVersion())
+                    .withKind(owner.getKind())
+                    .withName(owner.getMetadata().getName())
+                    .withUid(owner.getMetadata().getUid())
+                    .withController(true)
+                    .withBlockOwnerDeletion(false)
+                    .build();
+        }
+
         ConfigMap configMap = new ConfigMapBuilder()
                 .withNewMetadata()
                 .withName(name)
                 .withNamespace(namespace)
                 .withLabels(effectiveLabels)
+                .withOwnerReferences(ownerReference)
                 .endMetadata()
                 .withData(data)
                 .build();

@@ -1,6 +1,7 @@
 package com.netcracker.core.declarative.service.composite;
 
 import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.smallrye.faulttolerance.api.ExponentialBackoff;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -39,14 +40,12 @@ public class ConfigMapWriter {
     @Asynchronous
     @Retry(maxRetries = MAX_RETRY_ATTEMPTS, delay = 3000, maxDuration = 2, durationUnit = ChronoUnit.MINUTES)
     @ExponentialBackoff(maxDelay = 30, maxDelayUnit = ChronoUnit.SECONDS)
-    public CompletionStage<Void> requestUpdate(String configMapName, Map<String, String> payload) {
+    public CompletionStage<Void> requestUpdate(String configMapName, Map<String, String> payload, HasMetadata owner) {
         Objects.requireNonNull(configMapName, "configMapName");
         Objects.requireNonNull(payload, "payload");
 
-        Map<String, String> snapshot = Map.copyOf(payload);
-
         try {
-            configMapClient.createOrUpdate(configMapName, namespace, snapshot);
+            configMapClient.createOrUpdate(configMapName, namespace, payload, owner);
             log.debug("Successfully updated config map '{}'", configMapName);
             return CompletableFuture.completedFuture(null);
         } catch (RuntimeException ex) {
