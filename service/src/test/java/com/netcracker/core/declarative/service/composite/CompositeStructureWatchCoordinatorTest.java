@@ -15,13 +15,13 @@ class CompositeStructureWatchCoordinatorTest {
     private static final String NAMESPACE = "test-ns";
 
     private ConfigMapClient configMapClient;
-    private CompositeStructureRefChangeListener watcher;
+    private CompositeStructureWatcher watcher;
     private CompositeStructureWatchCoordinator coordinator;
 
     @BeforeEach
     void setUp() {
         configMapClient = mock(ConfigMapClient.class);
-        watcher = mock(CompositeStructureRefChangeListener.class);
+        watcher = mock(CompositeStructureWatcher.class);
 
         coordinator = new CompositeStructureWatchCoordinator(NAMESPACE, true, watcher, configMapClient);
     }
