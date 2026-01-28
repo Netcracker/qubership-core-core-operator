@@ -26,7 +26,7 @@ import java.util.Objects;
  */
 @ApplicationScoped
 @Slf4j
-public class CompositeStructureRefChangeListener {
+public class CompositeStructureWatcher {
 
     private static final String COMPOSITE_STRUCTURE_REF_TEMPLATE = "config/%s/application/composite/structureRef";
 
@@ -38,7 +38,7 @@ public class CompositeStructureRefChangeListener {
     private String currentCompositeStructurePrefix;
 
     @Inject
-    public CompositeStructureRefChangeListener(
+    public CompositeStructureWatcher(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
             ConsulLongPoller consulLongPoller) {
         this.consulLongPoller = consulLongPoller;

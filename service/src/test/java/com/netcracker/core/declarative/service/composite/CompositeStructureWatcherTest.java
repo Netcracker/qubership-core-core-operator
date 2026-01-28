@@ -23,7 +23,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class CompositeStructureRefChangeListenerTest {
+class CompositeStructureWatcherTest {
 
     private static final String NAMESPACE = "ns";
     private static final String STRUCTURE_REF_KEY = "config/ns/application/composite/structureRef";
@@ -32,7 +32,7 @@ class CompositeStructureRefChangeListenerTest {
     private LongPollSession refLongPollSession;
     private LongPollSession structureLongPollSession;
 
-    private CompositeStructureRefChangeListener watcher;
+    private CompositeStructureWatcher watcher;
 
     @BeforeEach
     void setUp() {
@@ -43,7 +43,7 @@ class CompositeStructureRefChangeListenerTest {
         when(consulLongPoller.startWatch(eq(STRUCTURE_REF_KEY), any()))
                 .thenReturn(refLongPollSession);
 
-        watcher = new CompositeStructureRefChangeListener(NAMESPACE, consulLongPoller);
+        watcher = new CompositeStructureWatcher(NAMESPACE, consulLongPoller);
     }
 
     @Test

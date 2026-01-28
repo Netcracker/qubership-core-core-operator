@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Coordinates composite structure watching based on ConfigMap ownership.
  * <p>
  * Periodically checks if the {@value #CONFIG_MAP_NAME} ConfigMap is managed by core-operator.
- * If managed, starts the {@link CompositeStructureRefChangeListener}; otherwise stops it.
+ * If managed, starts the {@link CompositeStructureWatcher}; otherwise stops it.
  * This allows another operator to take over ConfigMap management when needed.
  * <p>
  * The feature can be disabled via {@code cloud.composite.structure.sync.enabled=false}.
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CompositeStructureWatchCoordinator {
     public static final String CONFIG_MAP_NAME = "composite-structure";
 
-    private final CompositeStructureRefChangeListener compositeStructureRefChangeListener;
+    private final CompositeStructureWatcher compositeStructureWatcher;
     private final ConfigMapClient configMapClient;
     private final String namespace;
     private final boolean featureEnabled;
@@ -36,12 +36,12 @@ public class CompositeStructureWatchCoordinator {
     public CompositeStructureWatchCoordinator(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
             @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
-            CompositeStructureRefChangeListener compositeStructureRefChangeListener,
+            CompositeStructureWatcher compositeStructureWatcher,
             ConfigMapClient configMapClient) {
         this.namespace = namespace;
         this.featureEnabled = featureEnabled;
         this.configMapClient = configMapClient;
-        this.compositeStructureRefChangeListener = compositeStructureRefChangeListener;
+        this.compositeStructureWatcher = compositeStructureWatcher;
         this.watcherRunning = new AtomicBoolean(false);
     }
 
@@ -76,13 +76,13 @@ public class CompositeStructureWatchCoordinator {
             return;
         }
         log.info("Starting composite structure watcher for ConfigMap '{}'", CONFIG_MAP_NAME);
-        compositeStructureRefChangeListener.start();
+        compositeStructureWatcher.start();
     }
 
     private void stopWatcher() {
         if (!watcherRunning.compareAndSet(true, false)) {
             return;
         }
-        compositeStructureRefChangeListener.stop();
+        compositeStructureWatcher.stop();
     }
 }
