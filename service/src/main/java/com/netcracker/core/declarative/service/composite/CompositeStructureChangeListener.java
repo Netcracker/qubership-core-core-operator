@@ -43,15 +43,18 @@ public class CompositeStructureChangeListener {
     }
 
     void onStructureUpdated(@Observes CompositeStructureUpdateEvent event) {
-        log.info("Caught CompositeStructureConsulUpdateEvent -> Store Composite Structure to config map {}", CONFIG_MAP_NAME);
+        log.info("Received composite structure update from Consul with {} entries", event.getValues().size());
         try {
             CompositeStructureConfigMapPayload payload = compositeStructureTransformer.transform(event.getValues());
+            log.debug("Transformed composite structure: {}", payload);
+
             String json = objectMapper.writeValueAsString(payload);
             Map<String, String> compositeStructureContent = Map.of(CONFIG_MAP_DATA_KEY, json);
 
             Composite composite = compositeCRHolder.get();
 
             configMapWriter.requestUpdate(CONFIG_MAP_NAME, compositeStructureContent, composite)
+                    .thenRun(() -> log.info("Successfully updated ConfigMap '{}'", CONFIG_MAP_NAME))
                     .exceptionally(ex -> {
                         log.error("Failed to update ConfigMap '{}' after all retries", CONFIG_MAP_NAME, ex);
                         return null;

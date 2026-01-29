@@ -5,7 +5,6 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 

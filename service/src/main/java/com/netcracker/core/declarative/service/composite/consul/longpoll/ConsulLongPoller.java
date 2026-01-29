@@ -59,6 +59,7 @@ public class ConsulLongPoller {
      */
     public <T extends ConsulUpdateEvent> LongPollSession startWatch(String root,
                                                                     ConsulUpdateEventFactory<T> factory) {
+        log.info("Starting Consul long-poll watch for '/kv/{}'", root);
         LongPollSession longPollSession = new LongPollSession();
 
         LongPollParameters<T> longPollParameters = new LongPollParameters<>(root,

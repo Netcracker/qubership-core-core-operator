@@ -6,6 +6,7 @@ import com.netcracker.core.declarative.service.composite.model.CompositeStructur
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.*;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
  * with their blue-green roles (controller/origin/peer).
  */
 @ApplicationScoped
+@Slf4j
 public class CompositeStructureTransformer {
     private static final Pattern COMPOSITE_STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/(?<namespace>[^/]+)/(?<attribute>[^/]+)$");
     private static final String DEFAULT_CLOUD_PROVIDER = "OnPrem";
@@ -32,7 +34,10 @@ public class CompositeStructureTransformer {
     }
 
     public CompositeStructureConfigMapPayload transform(List<GetValue> values) {
+        log.debug("Transforming {} Consul KV entries", values.size());
         List<Namespace> namespaces = parseNamespaces(values);
+        log.debug("Parsed {} namespaces from Consul data", namespaces.size());
+
         CompositeStructure compositeStructure = new CompositeStructure(
                 buildBaseline(namespaces),
                 buildSatellites(namespaces)

@@ -105,11 +105,25 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             }
         }
 
-        compositeCRHolder.set(composite);
-        compositeStructureWatcher.start(compositeSpec.getCompositeId());
-
         log.info("Composite resource successfully processed");
         return setPhaseAndReschedule(composite, Phase.UPDATED_PHASE);
+    }
+
+    @Override
+    protected UpdateControl<T> onReconciliationCompleted(T composite) {
+        UpdateControl<T> result = super.onReconciliationCompleted(composite);
+
+        try {
+            CompositeSpec compositeSpec = fromResource(composite);
+            log.info("CompositeStructure updated -> start CompositeStructure watcher for compositeId = {}", compositeSpec.getCompositeId());
+            compositeCRHolder.set(composite);
+            compositeStructureWatcher.start(compositeSpec.getCompositeId());
+        }
+        catch (Exception e) {
+            log.error("Cannot start compositeStructureWatcher", e);
+        }
+
+        return result;
     }
 
     private UpdateControl<T> failStep(T resource, String type, String message, String reason) {

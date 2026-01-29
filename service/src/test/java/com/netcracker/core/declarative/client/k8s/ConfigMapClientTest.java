@@ -3,11 +3,13 @@ package com.netcracker.core.declarative.client.k8s;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -15,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -100,4 +103,92 @@ class ConfigMapClientTest {
     }
 
     private record ApplyResult(AtomicReference<ConfigMap> appliedConfigMapRef, AtomicBoolean wasApplied) {}
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsTrue_whenConfigMapIsNull() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        assertTrue(configMapClient.shouldBeManagedByCoreOperator((ConfigMap) null));
+    }
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsTrue_whenMetadataIsNull() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        ConfigMap configMap = new ConfigMap();
+        configMap.setMetadata(null);
+
+        assertTrue(configMapClient.shouldBeManagedByCoreOperator(configMap));
+    }
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsTrue_whenLabelsAreNull() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        ConfigMap configMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .endMetadata()
+                .build();
+
+        assertTrue(configMapClient.shouldBeManagedByCoreOperator(configMap));
+    }
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsTrue_whenLabelsAreEmpty() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        ConfigMap configMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withLabels(Collections.emptyMap())
+                .endMetadata()
+                .build();
+
+        assertTrue(configMapClient.shouldBeManagedByCoreOperator(configMap));
+    }
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsTrue_whenManagedByLabelIsAbsent() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        ConfigMap configMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withLabels(Map.of("some-other-label", "some-value"))
+                .endMetadata()
+                .build();
+
+        assertTrue(configMapClient.shouldBeManagedByCoreOperator(configMap));
+    }
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsTrue_whenManagedByCoreOperator() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        ConfigMap configMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withLabels(Map.of(ConfigMapClient.LABEL_MANAGED_BY, ConfigMapClient.MANAGED_BY_CORE_OPERATOR))
+                .endMetadata()
+                .build();
+
+        assertTrue(configMapClient.shouldBeManagedByCoreOperator(configMap));
+    }
+
+    @Test
+    void shouldBeManagedByCoreOperator_returnsFalse_whenManagedByAnotherOperator() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMapClient configMapClient = new ConfigMapClient(client);
+
+        ConfigMap configMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withLabels(Map.of(ConfigMapClient.LABEL_MANAGED_BY, "another-operator"))
+                .endMetadata()
+                .build();
+
+        assertFalse(configMapClient.shouldBeManagedByCoreOperator(configMap));
+    }
 }

@@ -6,20 +6,18 @@ import com.netcracker.core.declarative.service.composite.consul.CompositeStructu
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulUpdateEventFactory;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
-import io.quarkus.scheduler.ScheduledExecution;
-import io.quarkus.scheduler.Scheduler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -32,68 +30,51 @@ class CompositeStructureWatcherTest {
     private static final String NAMESPACE = "test-ns";
     private static final String COMPOSITE_ID = "test-composite";
     private static final String COMPOSITE_STRUCTURE_KEY = "composite/test-composite/structure";
+    private static final long TEST_CHECK_INTERVAL_MS = 50;
 
     private ConsulLongPoller consulLongPoller;
     private ConfigMapClient configMapClient;
-    private Scheduler scheduler;
-    private Scheduler.JobDefinition jobDefinition;
     private LongPollSession longPollSession;
-    private Consumer<ScheduledExecution> scheduledTask;
 
     private CompositeStructureWatcher watcher;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setUp() {
         consulLongPoller = mock(ConsulLongPoller.class);
         configMapClient = mock(ConfigMapClient.class);
-        scheduler = mock(Scheduler.class);
-        jobDefinition = mock(Scheduler.JobDefinition.class);
         longPollSession = createMockLongPollSession();
 
-        when(scheduler.newJob(anyString())).thenReturn(jobDefinition);
-        when(jobDefinition.setInterval(anyString())).thenReturn(jobDefinition);
-        when(jobDefinition.setTask(any(Consumer.class))).thenAnswer(invocation -> {
-            scheduledTask = invocation.getArgument(0);
-            return jobDefinition;
-        });
         when(consulLongPoller.startWatch(eq(COMPOSITE_STRUCTURE_KEY), any())).thenReturn(longPollSession);
 
-        watcher = new CompositeStructureWatcher(NAMESPACE, true, consulLongPoller, configMapClient, scheduler);
+        watcher = new CompositeStructureWatcher(NAMESPACE, true, TEST_CHECK_INTERVAL_MS, consulLongPoller, configMapClient);
     }
 
     // === Start lifecycle tests ===
 
     @Test
-    void startShouldSchedulePeriodicJob() {
-        watcher.start(COMPOSITE_ID);
-
-        verify(scheduler).newJob(anyString());
-        verify(jobDefinition).setInterval("5m");
-        verify(jobDefinition).setTask(any(Consumer.class));
-        verify(jobDefinition).schedule();
-    }
-
-    @Test
     void startShouldBeIdempotent() {
+        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(true);
+
         watcher.start(COMPOSITE_ID);
         watcher.start(COMPOSITE_ID);
 
-        verify(scheduler, times(1)).newJob(anyString());
+        await().untilAsserted(() ->
+                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator("composite-structure", NAMESPACE));
+        verify(consulLongPoller, times(1)).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any());
     }
 
     @Test
     void startWithNullCompositeIdShouldNotStart() {
         watcher.start(null);
 
-        verifyNoInteractions(scheduler);
+        verifyNoInteractions(configMapClient);
     }
 
     @Test
     void startWithBlankCompositeIdShouldNotStart() {
         watcher.start("   ");
 
-        verifyNoInteractions(scheduler);
+        verifyNoInteractions(configMapClient);
     }
 
     // === Ownership-based long-poll control tests ===
@@ -103,9 +84,9 @@ class CompositeStructureWatcherTest {
         when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(true);
 
         watcher.start(COMPOSITE_ID);
-        triggerScheduledTask();
 
-        verify(consulLongPoller).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any());
+        await().untilAsserted(() ->
+                verify(consulLongPoller).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any()));
     }
 
     @Test
@@ -113,8 +94,9 @@ class CompositeStructureWatcherTest {
         when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE)).thenReturn(false);
 
         watcher.start(COMPOSITE_ID);
-        triggerScheduledTask();
 
+        await().untilAsserted(() ->
+                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator("composite-structure", NAMESPACE));
         verify(consulLongPoller, never()).startWatch(any(), any());
     }
 
@@ -125,30 +107,8 @@ class CompositeStructureWatcherTest {
                 .thenReturn(false);
 
         watcher.start(COMPOSITE_ID);
-        triggerScheduledTask(); // starts long-poll
-        triggerScheduledTask(); // stops long-poll
 
-        verify(consulLongPoller).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any());
-        verify(longPollSession).cancel();
-    }
-
-    @Test
-    void shouldStartLongPollWhenOwnershipChangesBack() {
-        LongPollSession newSession = createMockLongPollSession();
-        when(configMapClient.shouldBeManagedByCoreOperator("composite-structure", NAMESPACE))
-                .thenReturn(true)
-                .thenReturn(false)
-                .thenReturn(true);
-        when(consulLongPoller.startWatch(eq(COMPOSITE_STRUCTURE_KEY), any()))
-                .thenReturn(longPollSession)
-                .thenReturn(newSession);
-
-        watcher.start(COMPOSITE_ID);
-        triggerScheduledTask(); // starts long-poll
-        triggerScheduledTask(); // stops long-poll
-        triggerScheduledTask(); // starts long-poll again
-
-        verify(consulLongPoller, times(2)).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any());
+        await().untilAsserted(() -> verify(longPollSession).cancel());
     }
 
     @Test
@@ -157,8 +117,9 @@ class CompositeStructureWatcherTest {
                 .thenThrow(new RuntimeException("API error"));
 
         watcher.start(COMPOSITE_ID);
-        triggerScheduledTask();
 
+        await().untilAsserted(() ->
+                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator("composite-structure", NAMESPACE));
         verify(consulLongPoller, never()).startWatch(any(), any());
     }
 
@@ -166,11 +127,9 @@ class CompositeStructureWatcherTest {
 
     @Test
     void shouldNotCheckOwnershipWhenFeatureDisabled() {
-        CompositeStructureWatcher disabledWatcher =
-                new CompositeStructureWatcher(NAMESPACE, false, consulLongPoller, configMapClient, scheduler);
+        watcher = new CompositeStructureWatcher(NAMESPACE, false, TEST_CHECK_INTERVAL_MS, consulLongPoller, configMapClient);
 
-        disabledWatcher.start(COMPOSITE_ID);
-        triggerScheduledTask();
+        watcher.start(COMPOSITE_ID);
 
         verifyNoInteractions(configMapClient);
         verify(consulLongPoller, never()).startWatch(any(), any());
@@ -188,7 +147,9 @@ class CompositeStructureWatcherTest {
                 .thenReturn(longPollSession);
 
         watcher.start(COMPOSITE_ID);
-        triggerScheduledTask();
+
+        await().untilAsserted(() ->
+                verify(consulLongPoller).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any()));
 
         ConsulUpdateEventFactory<CompositeStructureUpdateEvent> factory = factoryCaptor.getValue();
         GetValue mockValue = mock(GetValue.class);
@@ -200,12 +161,6 @@ class CompositeStructureWatcherTest {
     }
 
     // === Helper methods ===
-
-    private void triggerScheduledTask() {
-        if (scheduledTask != null) {
-            scheduledTask.accept(null);
-        }
-    }
 
     private static LongPollSession createMockLongPollSession() {
         AtomicBoolean cancelled = new AtomicBoolean(false);

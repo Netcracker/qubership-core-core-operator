@@ -4,11 +4,14 @@ import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
-import io.quarkus.scheduler.Scheduler;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Watches Consul for composite structure changes using long-polling.
@@ -23,19 +26,18 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * <p>
  * Call {@link #start(String)} to begin watching. This schedules periodic ownership checks.
  */
-@Singleton
+@ApplicationScoped
 @Slf4j
 public class CompositeStructureWatcher {
     public static final String CONFIG_MAP_NAME = "composite-structure";
-    private static final String JOB_IDENTITY = "composite-structure-watcher";
-    private static final String CHECK_INTERVAL = "5m";
     private static final String COMPOSITE_STRUCTURE_KEY_TEMPLATE = "composite/%s/structure";
 
     private final ConsulLongPoller consulLongPoller;
     private final ConfigMapClient configMapClient;
-    private final Scheduler scheduler;
+    private final ScheduledExecutorService scheduler;
     private final String namespace;
     private final boolean featureEnabled;
+    private final long checkIntervalMs;
 
     private LongPollSession longPollSession;
     private boolean started;
@@ -44,25 +46,25 @@ public class CompositeStructureWatcher {
     public CompositeStructureWatcher(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
             @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
+            @ConfigProperty(name = "cloud.composite.structure.sync.check.interval", defaultValue = "300000") long checkIntervalMs,
             ConsulLongPoller consulLongPoller,
-            ConfigMapClient configMapClient,
-            Scheduler scheduler) {
+            ConfigMapClient configMapClient) {
         this.consulLongPoller = consulLongPoller;
         this.configMapClient = configMapClient;
-        this.scheduler = scheduler;
         this.namespace = namespace;
         this.featureEnabled = featureEnabled;
+        this.checkIntervalMs = checkIntervalMs;
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     /**
      * Starts the watcher and schedules periodic ownership checks.
-     * <p>
-     * This method is idempotent - calling it multiple times has no effect.
      *
      * @param compositeId the composite ID to watch
      */
-    public void start(String compositeId) {
+    public synchronized void start(String compositeId) {
         if (started) {
+            log.debug("CompositeStructureWatcher already started, ignoring");
             return;
         }
         if (compositeId == null || compositeId.isBlank()) {
@@ -70,32 +72,32 @@ public class CompositeStructureWatcher {
             return;
         }
 
-        log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
-        started = true;
-
-        scheduler.newJob(JOB_IDENTITY)
-                .setInterval(CHECK_INTERVAL)
-                .setTask(execution -> ensureWatchState(compositeId))
-                .schedule();
-    }
-
-    private void ensureWatchState(String compositeId) {
         if (!featureEnabled) {
-            log.debug("Composite structure sync is disabled by configuration.");
-            stopLongPoll();
+            log.info("Composite structure sync is disabled by configuration");
             return;
         }
 
+        log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
+        started = true;
+
+        scheduler.scheduleAtFixedRate(
+                () -> ensureWatchState(compositeId),
+                0,
+                checkIntervalMs,
+                TimeUnit.MILLISECONDS);
+    }
+
+    private void ensureWatchState(String compositeId) {
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
+            log.debug("Should core-operator manage '{}': {}", CONFIG_MAP_NAME, shouldManage);
             if (shouldManage) {
                 startLongPoll(compositeId);
             } else {
-                log.info("Composite structure watching is disabled because '{}' is not managed by core-operator.", CONFIG_MAP_NAME);
                 stopLongPoll();
             }
-        } catch (RuntimeException ex) {
-            log.warn("Failed to verify management state for '{}'. Retrying on next schedule.", CONFIG_MAP_NAME, ex);
+        } catch (Exception ex) {
+            log.error("Unexpected error in CompositeStructureWatcher", ex);
         }
     }
 
@@ -109,10 +111,10 @@ public class CompositeStructureWatcher {
     }
 
     private void stopLongPoll() {
-        if (longPollSession != null) {
+        if (isLongPollRunning()) {
+            log.info("Stopping Consul long-poll for '{}'", CONFIG_MAP_NAME);
             longPollSession.cancel();
             longPollSession = null;
-            log.info("Consul long-poll stopped.");
         }
     }
 
