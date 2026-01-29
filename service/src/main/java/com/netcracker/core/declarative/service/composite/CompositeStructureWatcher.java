@@ -66,6 +66,7 @@ public class CompositeStructureWatcher {
      */
     public synchronized void start(String compositeId) {
         if (started) {
+            log.debug("CompositeStructureWatcher already started, ignoring");
             return;
         }
         if (compositeId == null || compositeId.isBlank()) {
@@ -88,6 +89,7 @@ public class CompositeStructureWatcher {
 
     synchronized void onStartup(@Observes StartupEvent event) {
         if (pendingCompositeId != null) {
+            log.debug("Scheduler ready, scheduling deferred job for compositeId={}", pendingCompositeId);
             scheduleJob(pendingCompositeId);
             pendingCompositeId = null;
         }
@@ -112,7 +114,6 @@ public class CompositeStructureWatcher {
             if (shouldManage) {
                 startLongPoll(compositeId);
             } else {
-                log.info("Composite structure watching is disabled because '{}' is not managed by core-operator.", CONFIG_MAP_NAME);
                 stopLongPoll();
             }
         } catch (RuntimeException ex) {
@@ -130,10 +131,10 @@ public class CompositeStructureWatcher {
     }
 
     private void stopLongPoll() {
-        if (longPollSession != null) {
+        if (isLongPollRunning()) {
+            log.info("Stopping Consul long-poll for '{}' (ConfigMap not managed by core-operator)", CONFIG_MAP_NAME);
             longPollSession.cancel();
             longPollSession = null;
-            log.info("Consul long-poll stopped.");
         }
     }
 
