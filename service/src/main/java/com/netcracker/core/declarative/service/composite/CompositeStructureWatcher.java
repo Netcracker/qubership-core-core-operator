@@ -73,6 +73,9 @@ public class CompositeStructureWatcher {
         log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
         started = true;
 
+        // Run immediately on start, then every CHECK_INTERVAL
+        ensureWatchState(compositeId);
+
         scheduler.newJob(JOB_IDENTITY)
                 .setInterval(CHECK_INTERVAL)
                 .setTask(execution -> ensureWatchState(compositeId))
@@ -80,6 +83,7 @@ public class CompositeStructureWatcher {
     }
 
     private void ensureWatchState(String compositeId) {
+        log.debug("VLLA ensureWatchState");
         if (!featureEnabled) {
             log.debug("Composite structure sync is disabled by configuration.");
             stopLongPoll();
