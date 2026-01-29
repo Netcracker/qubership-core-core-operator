@@ -4,13 +4,13 @@ import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
-import io.quarkus.runtime.StartupEvent;
-import io.quarkus.scheduler.Scheduler;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
+import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Watches Consul for composite structure changes using long-polling.
@@ -29,18 +29,16 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @Slf4j
 public class CompositeStructureWatcher {
     public static final String CONFIG_MAP_NAME = "composite-structure";
-    private static final String JOB_IDENTITY = "composite-structure-watcher";
-    private static final String CHECK_INTERVAL = "5m";
+    private static final long CHECK_INTERVAL_MS = TimeUnit.MINUTES.toMillis(5);
     private static final String COMPOSITE_STRUCTURE_KEY_TEMPLATE = "composite/%s/structure";
 
     private final ConsulLongPoller consulLongPoller;
     private final ConfigMapClient configMapClient;
-    private final Scheduler scheduler;
+    private final Vertx vertx;
     private final String namespace;
     private final boolean featureEnabled;
 
     private LongPollSession longPollSession;
-    private String pendingCompositeId;
     private boolean started;
 
     @Inject
@@ -49,18 +47,16 @@ public class CompositeStructureWatcher {
             @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
             ConsulLongPoller consulLongPoller,
             ConfigMapClient configMapClient,
-            Scheduler scheduler) {
+            Vertx vertx) {
         this.consulLongPoller = consulLongPoller;
         this.configMapClient = configMapClient;
-        this.scheduler = scheduler;
+        this.vertx = vertx;
         this.namespace = namespace;
         this.featureEnabled = featureEnabled;
     }
 
     /**
      * Starts the watcher and schedules periodic ownership checks.
-     * <p>
-     * This method is idempotent - calling it multiple times has no effect.
      *
      * @param compositeId the composite ID to watch
      */
@@ -74,42 +70,20 @@ public class CompositeStructureWatcher {
             return;
         }
 
-        log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
-        started = true;
-
-        ensureWatchState(compositeId);
-
-        if (scheduler.isStarted()) {
-            scheduleJob(compositeId);
-        } else {
-            log.debug("Scheduler not ready, deferring job scheduling to startup event");
-            pendingCompositeId = compositeId;
-        }
-    }
-
-    synchronized void onStartup(@Observes StartupEvent event) {
-        log.debug("VLLA onStartup");
-        if (pendingCompositeId != null) {
-            log.debug("Scheduler ready, scheduling deferred job for compositeId={}", pendingCompositeId);
-            scheduleJob(pendingCompositeId);
-            pendingCompositeId = null;
-        }
-    }
-
-    private void scheduleJob(String compositeId) {
-        scheduler.newJob(JOB_IDENTITY)
-                .setInterval(CHECK_INTERVAL)
-                .setTask(execution -> ensureWatchState(compositeId))
-                .schedule();
-    }
-
-    private synchronized void ensureWatchState(String compositeId) {
         if (!featureEnabled) {
-            log.debug("Composite structure sync is disabled by configuration.");
-            stopLongPoll();
+            log.info("Composite structure sync is disabled by configuration");
             return;
         }
 
+        log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
+        started = true;
+
+        // Run immediately, then schedule periodic checks
+        ensureWatchState(compositeId);
+        vertx.setPeriodic(CHECK_INTERVAL_MS, id -> ensureWatchState(compositeId));
+    }
+
+    private synchronized void ensureWatchState(String compositeId) {
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
             if (shouldManage) {
@@ -133,7 +107,7 @@ public class CompositeStructureWatcher {
 
     private void stopLongPoll() {
         if (isLongPollRunning()) {
-            log.info("Stopping Consul long-poll for '{}' (ConfigMap not managed by core-operator)", CONFIG_MAP_NAME);
+            log.info("Stopping Consul long-poll for '{}'", CONFIG_MAP_NAME);
             longPollSession.cancel();
             longPollSession = null;
         }
