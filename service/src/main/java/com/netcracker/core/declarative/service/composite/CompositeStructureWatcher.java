@@ -4,9 +4,11 @@ import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
+import io.quarkus.runtime.StartupEvent;
 import io.quarkus.scheduler.Scheduler;
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.enterprise.context.ApplicationScoped;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -38,6 +40,7 @@ public class CompositeStructureWatcher {
     private final boolean featureEnabled;
 
     private LongPollSession longPollSession;
+    private String pendingCompositeId;
     private boolean started;
 
     @Inject
@@ -76,6 +79,24 @@ public class CompositeStructureWatcher {
 
         ensureWatchState(compositeId);
 
+        if (scheduler.isStarted()) {
+            scheduleJob(compositeId);
+        } else {
+            log.debug("Scheduler not ready, deferring job scheduling to startup event");
+            pendingCompositeId = compositeId;
+        }
+    }
+
+    synchronized void onStartup(@Observes StartupEvent event) {
+        log.debug("VLLA onStartup");
+        if (pendingCompositeId != null) {
+            log.debug("Scheduler ready, scheduling deferred job for compositeId={}", pendingCompositeId);
+            scheduleJob(pendingCompositeId);
+            pendingCompositeId = null;
+        }
+    }
+
+    private void scheduleJob(String compositeId) {
         scheduler.newJob(JOB_IDENTITY)
                 .setInterval(CHECK_INTERVAL)
                 .setTask(execution -> ensureWatchState(compositeId))
