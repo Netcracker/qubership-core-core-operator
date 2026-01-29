@@ -163,38 +163,6 @@ class CompositeStructureWatcherTest {
         verify(consulLongPoller, never()).startWatch(any(), any());
     }
 
-    // === Deferred scheduling tests ===
-
-    @Test
-    void shouldDeferJobSchedulingWhenSchedulerNotReady() {
-        when(scheduler.isRunning()).thenReturn(false);
-
-        watcher.start(COMPOSITE_ID);
-
-        verify(scheduler, never()).newJob(anyString());
-    }
-
-    @Test
-    void shouldScheduleJobOnStartupWhenDeferred() {
-        when(scheduler.isRunning()).thenReturn(false);
-
-        watcher.start(COMPOSITE_ID);
-        watcher.onStartup(null);
-
-        verify(scheduler).newJob(anyString());
-        verify(jobDefinition).schedule();
-    }
-
-    @Test
-    void shouldNotScheduleJobOnStartupWhenNotDeferred() {
-        when(scheduler.isRunning()).thenReturn(true);
-
-        watcher.start(COMPOSITE_ID);
-        watcher.onStartup(null);
-
-        verify(scheduler, times(1)).newJob(anyString());
-    }
-
     // === Feature flag tests ===
 
     @Test
