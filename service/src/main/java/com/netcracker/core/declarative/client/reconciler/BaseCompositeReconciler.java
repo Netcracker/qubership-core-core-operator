@@ -86,24 +86,24 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             }
         }
 
-        Set<String> namespaceList = compositeConsulUpdater.getCompositeMembers(compositeSpec.getCompositeId());
-
-        log.info("Update XaaSes...");
-        for (CompositeStructureUpdateNotifier step : compositeStructureUpdateNotifiers) {
-            String stepId = XAAS_UPDATED_STEP_NAME.apply(step.getXaasName());
-            if (isCompleted(composite, stepId)) {
-                continue;
-            }
-
-            try {
-                log.info("Send composite structure to {}", step.getXaasName());
-                step.notify(compositeSpec.getCompositeId(), namespaceList);
-                completeStep(composite, stepId);
-            } catch (Exception e) {
-                log.error("Notification failed for {}", step.getXaasName(), e);
-                return failStep(composite, stepId, step.getXaasName() + " notify error", e.getMessage());
-            }
-        }
+//        Set<String> namespaceList = compositeConsulUpdater.getCompositeMembers(compositeSpec.getCompositeId());
+//
+//        log.info("Update XaaSes...");
+//        for (CompositeStructureUpdateNotifier step : compositeStructureUpdateNotifiers) {
+//            String stepId = XAAS_UPDATED_STEP_NAME.apply(step.getXaasName());
+//            if (isCompleted(composite, stepId)) {
+//                continue;
+//            }
+//
+//            try {
+//                log.info("Send composite structure to {}", step.getXaasName());
+//                step.notify(compositeSpec.getCompositeId(), namespaceList);
+//                completeStep(composite, stepId);
+//            } catch (Exception e) {
+//                log.error("Notification failed for {}", step.getXaasName(), e);
+//                return failStep(composite, stepId, step.getXaasName() + " notify error", e.getMessage());
+//            }
+//        }
 
         compositeCRHolder.set(composite);
         compositeStructureWatcher.start(compositeSpec.getCompositeId());
