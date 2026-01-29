@@ -4,7 +4,9 @@ import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
+import io.quarkus.runtime.StartupEvent;
 import io.quarkus.scheduler.Scheduler;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,7 @@ public class CompositeStructureWatcher {
     private final boolean featureEnabled;
 
     private LongPollSession longPollSession;
+    private String pendingCompositeId;
     private boolean started;
 
     @Inject
@@ -61,7 +64,7 @@ public class CompositeStructureWatcher {
      *
      * @param compositeId the composite ID to watch
      */
-    public void start(String compositeId) {
+    public synchronized void start(String compositeId) {
         if (started) {
             return;
         }
@@ -73,17 +76,31 @@ public class CompositeStructureWatcher {
         log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
         started = true;
 
-        // Run immediately on start, then every CHECK_INTERVAL
         ensureWatchState(compositeId);
 
+        if (scheduler.isRunning()) {
+            scheduleJob(compositeId);
+        } else {
+            log.debug("Scheduler not ready, deferring job scheduling to startup event");
+            pendingCompositeId = compositeId;
+        }
+    }
+
+    synchronized void onStartup(@Observes StartupEvent event) {
+        if (pendingCompositeId != null) {
+            scheduleJob(pendingCompositeId);
+            pendingCompositeId = null;
+        }
+    }
+
+    private void scheduleJob(String compositeId) {
         scheduler.newJob(JOB_IDENTITY)
                 .setInterval(CHECK_INTERVAL)
                 .setTask(execution -> ensureWatchState(compositeId))
                 .schedule();
     }
 
-    private void ensureWatchState(String compositeId) {
-        log.debug("VLLA ensureWatchState");
+    private synchronized void ensureWatchState(String compositeId) {
         if (!featureEnabled) {
             log.debug("Composite structure sync is disabled by configuration.");
             stopLongPoll();
@@ -92,7 +109,6 @@ public class CompositeStructureWatcher {
 
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
-            log.debug("VLLA shouldManage = {}", shouldManage);
             if (shouldManage) {
                 startLongPoll(compositeId);
             } else {
