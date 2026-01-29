@@ -4,12 +4,13 @@ import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
-import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -29,14 +30,14 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class CompositeStructureWatcher {
     public static final String CONFIG_MAP_NAME = "composite-structure";
-    private static final long CHECK_INTERVAL_MS = TimeUnit.MINUTES.toMillis(5);
     private static final String COMPOSITE_STRUCTURE_KEY_TEMPLATE = "composite/%s/structure";
 
     private final ConsulLongPoller consulLongPoller;
     private final ConfigMapClient configMapClient;
-    private final Vertx vertx;
+    private final ScheduledExecutorService scheduler;
     private final String namespace;
     private final boolean featureEnabled;
+    private final long checkIntervalMs;
 
     private LongPollSession longPollSession;
     private boolean started;
@@ -45,14 +46,15 @@ public class CompositeStructureWatcher {
     public CompositeStructureWatcher(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
             @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
+            @ConfigProperty(name = "cloud.composite.structure.sync.check.interval", defaultValue = "300000") long checkIntervalMs,
             ConsulLongPoller consulLongPoller,
-            ConfigMapClient configMapClient,
-            Vertx vertx) {
+            ConfigMapClient configMapClient) {
         this.consulLongPoller = consulLongPoller;
         this.configMapClient = configMapClient;
-        this.vertx = vertx;
         this.namespace = namespace;
         this.featureEnabled = featureEnabled;
+        this.checkIntervalMs = checkIntervalMs;
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     /**
@@ -78,21 +80,24 @@ public class CompositeStructureWatcher {
         log.info("Starting CompositeStructureWatcher for compositeId={}", compositeId);
         started = true;
 
-        // Run immediately, then schedule periodic checks
-        ensureWatchState(compositeId);
-        vertx.setPeriodic(CHECK_INTERVAL_MS, id -> ensureWatchState(compositeId));
+        scheduler.scheduleAtFixedRate(
+                () -> ensureWatchState(compositeId),
+                0,
+                checkIntervalMs,
+                TimeUnit.MILLISECONDS);
     }
 
-    private synchronized void ensureWatchState(String compositeId) {
+    private void ensureWatchState(String compositeId) {
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
+            log.debug("Should core-operator manage '{}': {}", CONFIG_MAP_NAME, shouldManage);
             if (shouldManage) {
                 startLongPoll(compositeId);
             } else {
                 stopLongPoll();
             }
-        } catch (RuntimeException ex) {
-            log.warn("Failed to verify management state for '{}'. Retrying on next schedule.", CONFIG_MAP_NAME, ex);
+        } catch (Exception ex) {
+            log.error("Unexpected error in CompositeStructureWatcher", ex);
         }
     }
 
