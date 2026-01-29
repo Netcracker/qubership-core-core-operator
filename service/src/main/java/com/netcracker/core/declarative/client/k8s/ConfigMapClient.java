@@ -118,6 +118,8 @@ public class ConfigMapClient {
 
         ConfigMap existingConfigMap = getConfigMap(name, namespace);
 
+        log.info("VLLA existingConfigMap = {}", existingConfigMap);
+
         return shouldBeManagedByCoreOperator(existingConfigMap);
     }
 

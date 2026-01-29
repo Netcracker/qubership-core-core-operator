@@ -92,6 +92,7 @@ public class CompositeStructureWatcher {
 
         try {
             boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
+            log.debug("VLLA shouldManage = {}", shouldManage);
             if (shouldManage) {
                 startLongPoll(compositeId);
             } else {
