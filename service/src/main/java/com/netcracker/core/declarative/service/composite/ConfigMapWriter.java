@@ -20,13 +20,11 @@ import java.util.concurrent.CompletionStage;
  * Asynchronously writes data to Kubernetes ConfigMaps with retry support.
  * <p>
  * Uses exponential backoff (3s -> 6s -> 12s -> 24s -> 30s max) for retries
- * on failure, up to {@value #MAX_RETRY_ATTEMPTS} attempts.
+ * on failure, up to 10 attempts.
  */
 @ApplicationScoped
 @Slf4j
 public class ConfigMapWriter {
-    static final int MAX_RETRY_ATTEMPTS = 4;
-
     private final ConfigMapClient configMapClient;
     private final String namespace;
 
@@ -38,7 +36,7 @@ public class ConfigMapWriter {
     }
 
     @Asynchronous
-    @Retry(maxRetries = MAX_RETRY_ATTEMPTS, delay = 3000, maxDuration = 2, durationUnit = ChronoUnit.MINUTES)
+    @Retry(maxRetries = 10, delay = 3000, maxDuration = 5, durationUnit = ChronoUnit.MINUTES)
     @ExponentialBackoff(maxDelay = 30, maxDelayUnit = ChronoUnit.SECONDS)
     public CompletionStage<Void> requestUpdate(String configMapName, Map<String, String> payload, HasMetadata owner) {
         Objects.requireNonNull(configMapName, "configMapName");

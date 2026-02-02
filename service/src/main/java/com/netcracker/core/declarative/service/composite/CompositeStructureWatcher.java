@@ -67,13 +67,14 @@ public class CompositeStructureWatcher {
             log.debug("CompositeStructureWatcher already started, ignoring");
             return;
         }
-        if (compositeId == null || compositeId.isBlank()) {
-            log.warn("Cannot start CompositeStructureWatcher: compositeId is null or blank");
-            return;
-        }
 
         if (!featureEnabled) {
             log.info("Composite structure sync is disabled by configuration");
+            return;
+        }
+
+        if (compositeId == null || compositeId.isBlank()) {
+            log.warn("Cannot start CompositeStructureWatcher: compositeId is null or blank");
             return;
         }
 
