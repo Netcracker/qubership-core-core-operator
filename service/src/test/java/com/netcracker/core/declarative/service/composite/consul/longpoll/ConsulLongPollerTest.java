@@ -57,8 +57,8 @@ class ConsulLongPollerTest {
         Instance<TokenStorage> tokenStorageInstance = mock(Instance.class);
         when(tokenStorageInstance.get()).thenReturn(tokenStorage);
         when(consulSourceConfig.waitTime()).thenReturn(WAIT_TIME_SECS);
-        when(consulLongPollConfig.consulRetryTime()).thenReturn(RETRY_DELAY_MS);
-        when(consulLongPollConfig.consulOnSuccessDelayTime()).thenReturn(SUCCESS_DELAY_MS);
+        when(consulLongPollConfig.retryTime()).thenReturn(RETRY_DELAY_MS);
+        when(consulLongPollConfig.onSuccessDelayTime()).thenReturn(SUCCESS_DELAY_MS);
         when(tokenStorage.get()).thenReturn(TOKEN);
 
         poller = new ConsulLongPoller(tokenStorageInstance, consulClient, consulSourceConfig, consulLongPollConfig, event);

@@ -65,8 +65,8 @@ public class ConsulLongPoller {
         LongPollParameters<T> longPollParameters = new LongPollParameters<>(root,
                 factory,
                 consulSourceConfig.waitTime(),
-                consulLongPollConfig.consulRetryTime(),
-                consulLongPollConfig.consulOnSuccessDelayTime());
+                consulLongPollConfig.retryTime(),
+                consulLongPollConfig.onSuccessDelayTime());
 
         pollLoop(longPollParameters, 0, longPollSession);
 

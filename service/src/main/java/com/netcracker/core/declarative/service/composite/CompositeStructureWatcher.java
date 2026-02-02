@@ -46,7 +46,7 @@ public class CompositeStructureWatcher {
     public CompositeStructureWatcher(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
             @ConfigProperty(name = "cloud.composite.structure.sync.enabled", defaultValue = "true") boolean featureEnabled,
-            @ConfigProperty(name = "cloud.composite.structure.sync.check.interval", defaultValue = "300000") long checkIntervalMs,
+            @ConfigProperty(name = "cloud.composite.structure.sync.check-interval", defaultValue = "300000") long checkIntervalMs,
             ConsulLongPoller consulLongPoller,
             ConfigMapClient configMapClient) {
         this.consulLongPoller = consulLongPoller;
