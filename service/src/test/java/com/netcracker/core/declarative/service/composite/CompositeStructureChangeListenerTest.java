@@ -4,9 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.resources.composite.Composite;
 import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
-import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,6 @@ import static com.netcracker.core.declarative.service.composite.CompositeStructu
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.when;
 
 class CompositeStructureChangeListenerTest {
 
@@ -29,6 +28,7 @@ class CompositeStructureChangeListenerTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private ConfigMapWriter configMapWriter;
+    private CompositeCRHolder compositeCRHolder;
     private CompositeStructureChangeListener listener;
 
     @BeforeEach
@@ -36,7 +36,11 @@ class CompositeStructureChangeListenerTest {
         configMapWriter = mock(ConfigMapWriter.class);
         when(configMapWriter.requestUpdate(any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
-        CompositeCRHolder compositeCRHolder = mock(CompositeCRHolder.class);
+
+        compositeCRHolder = mock(CompositeCRHolder.class);
+        // By default, return a mock Composite CR (non-null)
+        when(compositeCRHolder.get()).thenReturn(mock(Composite.class));
+
         CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer(CLOUD_PROVIDER);
         listener = new CompositeStructureChangeListener(
                 objectMapper,
@@ -70,13 +74,15 @@ class CompositeStructureChangeListenerTest {
     }
 
     @Test
-    void handleShouldThrowOnSerializationError() {
+    void handleShouldNotThrowOnTransformationError() {
         CompositeStructureUpdateEvent event = createEvent(Map.of(
                 "composite/sample/structure/ns-a/compositeRole", "INVALID_ROLE"
         ));
 
-        assertThrows(CompositeStructureParseException.class, () -> listener.onStructureUpdated(event));
+        // Should not throw exception - errors are caught and logged
+        assertDoesNotThrow(() -> listener.onStructureUpdated(event));
 
+        // ConfigMapWriter should not be called when transformation fails
         verifyNoInteractions(configMapWriter);
     }
 
@@ -94,6 +100,22 @@ class CompositeStructureChangeListenerTest {
         assertEquals(CLOUD_PROVIDER, root.get("cloudProvider").asText());
         // composite should be empty/null when no values
         assertFalse(root.has("composite") && root.get("composite").has("baseline"));
+    }
+
+    @Test
+    void handleShouldSkipUpdateWhenCompositeIsNull() {
+        // Setup: compositeCRHolder returns null (CR not available yet)
+        when(compositeCRHolder.get()).thenReturn(null);
+
+        CompositeStructureUpdateEvent event = createEvent(Map.of(
+                "composite/sample/structure/ns-a/compositeRole", "baseline"
+        ));
+
+        // Should not throw exception
+        assertDoesNotThrow(() -> listener.onStructureUpdated(event));
+
+        // ConfigMapWriter should not be called when CR is null
+        verifyNoInteractions(configMapWriter);
     }
 
     @SuppressWarnings("unchecked")

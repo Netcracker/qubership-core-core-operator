@@ -1,12 +1,10 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.core.declarative.resources.composite.Composite;
 import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
-import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -52,6 +50,11 @@ public class CompositeStructureChangeListener {
             Map<String, String> compositeStructureContent = Map.of(CONFIG_MAP_DATA_KEY, json);
 
             Composite composite = compositeCRHolder.get();
+            if (composite == null) {
+                log.warn("Composite CR not available yet, skipping ConfigMap update. " +
+                        "ConfigMap will be updated on next Consul change after CR reconciliation.");
+                return;
+            }
 
             configMapWriter.requestUpdate(CONFIG_MAP_NAME, compositeStructureContent, composite)
                     .thenRun(() -> log.info("Successfully updated ConfigMap '{}'", CONFIG_MAP_NAME))
@@ -59,8 +62,8 @@ public class CompositeStructureChangeListener {
                         log.error("Failed to update ConfigMap '{}' after all retries", CONFIG_MAP_NAME, ex);
                         return null;
                     });
-        } catch (JsonProcessingException e) {
-            throw new CompositeStructureParseException("Failed to serialize composite structure to JSON", e);
+        } catch (Exception e) {
+            log.error("Failed to process composite structure update from Consul", e);
         }
     }
 }

@@ -4,6 +4,7 @@ import com.netcracker.core.declarative.client.k8s.ConfigMapClient;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -121,5 +122,26 @@ public class CompositeStructureWatcher {
 
     private boolean isLongPollRunning() {
         return longPollSession != null && !longPollSession.isCancelled();
+    }
+
+    /**
+     * Gracefully shuts down the watcher on pod termination.
+     * Stops Consul polling and shuts down the executor service.
+     */
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down CompositeStructureWatcher");
+        stopLongPoll();
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                log.warn("Scheduler did not terminate in time, forcing shutdown");
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            log.warn("Interrupted while waiting for scheduler shutdown", e);
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }
