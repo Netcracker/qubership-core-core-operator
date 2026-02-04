@@ -17,7 +17,6 @@ import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
@@ -116,12 +115,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 }
                 case UPDATING, BACKING_OFF -> reconcileInternal(resource);
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
-                case UPDATED_PHASE -> {
-                    log.info("Successfully finished processing CR");
-                    resource.getStatus().getConditions().clear();
-                    retryResourceCache.remove(ResourceID.fromResource(resource));
-                    yield UpdateControl.patchStatus(resource);
-                }
+                case UPDATED_PHASE -> onReconciliationCompleted(resource);
                 case INVALID_CONFIGURATION -> {
                     log.info("CR content is invalid, no additional processing is possible");
                     yield UpdateControl.noUpdate();
@@ -150,6 +144,13 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
     protected UpdateControl<T> reconcilePooling(T t) throws Exception {
         return UpdateControl.noUpdate();
+    }
+
+    protected UpdateControl<T> onReconciliationCompleted(T resource) {
+        log.info("Successfully finished processing CR");
+        resource.getStatus().getConditions().clear();
+        retryResourceCache.remove(ResourceID.fromResource(resource));
+        return UpdateControl.patchStatus(resource);
     }
 
     protected String getApiVersion() {

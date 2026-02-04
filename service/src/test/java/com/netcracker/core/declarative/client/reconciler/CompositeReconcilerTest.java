@@ -7,8 +7,10 @@ import com.netcracker.core.declarative.resources.base.CoreResource;
 import com.netcracker.core.declarative.resources.composite.Composite;
 import com.netcracker.core.declarative.service.CompositeConsulUpdater;
 import com.netcracker.core.declarative.service.CompositeSpec;
+import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 import com.netcracker.core.declarative.service.NoopCompositeConsulUpdaterImpl;
+import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.runtime.RawExtension;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -46,7 +48,9 @@ class CompositeReconcilerTest {
                 List.of(
                         new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient),
                         new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
-                )
+                ),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();
@@ -105,7 +109,9 @@ class CompositeReconcilerTest {
                 List.of(
                         new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient),
                         new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
-                )
+                ),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();
@@ -133,7 +139,9 @@ class CompositeReconcilerTest {
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 mock(CompositeConsulUpdater.class),
-                List.of()
+                List.of(),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();
@@ -158,7 +166,9 @@ class CompositeReconcilerTest {
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 compositeConsulUpdater,
-                List.of()
+                List.of(),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();
@@ -190,7 +200,9 @@ class CompositeReconcilerTest {
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 compositeConsulUpdater,
-                List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient))
+                List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();
@@ -230,7 +242,9 @@ class CompositeReconcilerTest {
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 compositeConsulUpdater,
-                List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient))
+                List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();
@@ -273,7 +287,9 @@ class CompositeReconcilerTest {
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 compositeConsulUpdater,
-                List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient))
+                List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
         );
 
         Composite composite = new Composite();

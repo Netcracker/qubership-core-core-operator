@@ -612,6 +612,13 @@
       ],
       "internal": true,
       "title": "The HPA_SCALING_UP_STABILIZATION_WINDOW_SECONDS scheme"
+    },
+    "CLOUD_PROVIDER": {
+      "$id": "#/properties/CLOUD_PROVIDER",
+      "type": "string",
+      "title": "Cloud Provider",
+      "description": "Current cloud provider. Could be EKS, GKE, AKS, OnPrem",
+      "default": "OnPrem"
     }
   },
   "additionalProperties": true

@@ -1,6 +1,11 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import com.netcracker.core.declarative.client.rest.Condition;
 import com.netcracker.core.declarative.client.rest.ProcessStatus;
 import com.netcracker.core.declarative.exception.NoopConsulException;
@@ -11,6 +16,7 @@ import com.netcracker.core.declarative.resources.base.Phase;
 import com.netcracker.core.declarative.resources.composite.Composite;
 import com.netcracker.core.declarative.service.CompositeConsulUpdater;
 import com.netcracker.core.declarative.service.CompositeSpec;
+import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
@@ -32,15 +38,21 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
 
     private CompositeConsulUpdater compositeConsulUpdater;
     private List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers;
+    private CompositeStructureWatcher compositeStructureWatcher;
+    private CompositeCRHolder compositeCRHolder;
 
     public BaseCompositeReconciler(
             KubernetesClient client,
             CompositeConsulUpdater compositeConsulUpdater,
-            List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers
+            List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers,
+            CompositeStructureWatcher compositeStructureWatcher,
+            CompositeCRHolder compositeCRHolder
     ) {
         super(client);
         this.compositeConsulUpdater = compositeConsulUpdater;
         this.compositeStructureUpdateNotifiers = compositeStructureUpdateNotifiers;
+        this.compositeStructureWatcher = compositeStructureWatcher;
+        this.compositeCRHolder = compositeCRHolder;
     }
 
     protected BaseCompositeReconciler() {
@@ -73,6 +85,7 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             } catch (InterruptedException e) {
                 throw e;
             } catch (Exception e) {
+                log.error("Consul update error", e);
                 return failStep(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME, "consul update error", e.getMessage());
             }
         }
@@ -98,6 +111,23 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
 
         log.info("Composite resource successfully processed");
         return setPhaseAndReschedule(composite, Phase.UPDATED_PHASE);
+    }
+
+    @Override
+    protected UpdateControl<T> onReconciliationCompleted(T composite) {
+        UpdateControl<T> result = super.onReconciliationCompleted(composite);
+
+        try {
+            CompositeSpec compositeSpec = fromResource(composite);
+            log.info("CompositeStructure updated -> start CompositeStructure watcher for compositeId = {}", compositeSpec.getCompositeId());
+            compositeCRHolder.set(composite);
+            compositeStructureWatcher.start(compositeSpec.getCompositeId());
+        }
+        catch (Exception e) {
+            log.error("Cannot start compositeStructureWatcher", e);
+        }
+
+        return result;
     }
 
     private UpdateControl<T> failStep(T resource, String type, String message, String reason) {
