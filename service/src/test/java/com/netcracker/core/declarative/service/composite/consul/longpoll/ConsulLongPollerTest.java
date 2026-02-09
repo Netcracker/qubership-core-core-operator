@@ -262,10 +262,10 @@ class ConsulLongPollerTest {
                 .thenAnswer(inv -> {
                     QueryParams params = inv.getArgument(2);
                     int count = callCount.incrementAndGet();
-                    secondPoll.countDown();
                     if (count == 2) {
                         secondIndex.set(params.getIndex());
                     }
+                    secondPoll.countDown();
                     return CompletableFuture.completedFuture(count == 1 ? response1 : response2);
                 });
 

@@ -6,6 +6,7 @@ import com.netcracker.core.declarative.service.composite.consul.CompositeStructu
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulLongPoller;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.ConsulUpdateEventFactory;
 import com.netcracker.core.declarative.service.composite.consul.longpoll.LongPollSession;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -47,6 +48,13 @@ class CompositeStructureWatcherTest {
         when(consulLongPoller.startWatch(eq(COMPOSITE_STRUCTURE_KEY), any())).thenReturn(longPollSession);
 
         watcher = new CompositeStructureWatcher(NAMESPACE, true, TEST_CHECK_INTERVAL_MS, consulLongPoller, configMapClient);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (watcher != null) {
+            watcher.shutdown();
+        }
     }
 
     // === Start lifecycle tests ===
