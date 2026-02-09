@@ -82,12 +82,12 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>core-error-handling-rest</artifactId>
-            <version>3.2.6</version>
+            <version>3.3.0</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>8.2.2</version>
+            <version>8.3.0</version>
         </dependency>
         <!-- Other -->
         <dependency>
