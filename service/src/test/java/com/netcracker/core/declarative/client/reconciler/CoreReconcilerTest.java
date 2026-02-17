@@ -130,6 +130,23 @@ class CoreReconcilerTest {
     }
 
     @Test
+    void sessionLabelDifferTriggersUpdatingFromInvalidConfigurationOnStart() throws Exception {
+        Maas maas = new Maas();
+        maas.setSubKind("TopicTemplate");
+        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
+        ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, Map.of(SESSION_ID_LABEL, "some-session"), null, "maasName", "namespace", null, "0", "", "uid");
+        maas.setMetadata(meta);
+        maas.getStatus().setPhase(INVALID_CONFIGURATION);
+        maas.getStatus().getConditions().put("SomeCondition", new CoreCondition("1", "2", "m", "r", COMPLETED, true, "t"));
+
+        UpdateControl<Maas> updateControl = maaSReconciler.reconcile(maas, null);
+
+        assertEquals(UPDATING, updateControl.getResource().get().getStatus().getPhase());
+        assertTrue(updateControl.getResource().get().getStatus().getConditions().isEmpty());
+        assertEquals(1000L, (long) updateControl.getScheduleDelay().get());
+    }
+
+    @Test
     void labelFallbackTest() {
         //1. test new label
         Maas maas = new Maas();
