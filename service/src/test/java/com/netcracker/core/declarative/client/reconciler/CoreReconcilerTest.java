@@ -127,6 +127,14 @@ class CoreReconcilerTest {
         assertEquals(UPDATING, updateControl.getResource().get().getStatus().getPhase());
         assertTrue(updateControl.getResource().get().getStatus().getConditions().isEmpty());
         assertEquals(1000L, (long) updateControl.getScheduleDelay().get());
+
+        maas.getStatus().setPhase(INVALID_CONFIGURATION);
+        UpdateControl<Maas> updateControlWithInvalidConfiguration = maaSReconciler.reconcile(maas, null);
+
+        assertEquals(UPDATING, updateControlWithInvalidConfiguration.getResource().getStatus().getPhase());
+        assertTrue(updateControlWithInvalidConfiguration.getResource().getStatus().getConditions().isEmpty());
+        assertEquals(1000L, (long) updateControlWithInvalidConfiguration.getScheduleDelay().get());
+
     }
 
     @Test

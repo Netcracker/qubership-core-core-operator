@@ -84,7 +84,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         Phase phase = resource.getStatus().getPhase();
         String processedByOperatorVer = resource.getStatus().getAdditionalPropertyAsString(PROCESSED_BY_OPERATOR_VER_PROPERTY);
         // Reconcile after new operator deployment
-        if ((StringUtils.isEmpty(processedByOperatorVer) || !processedByOperatorVer.equalsIgnoreCase(deploymentSessionId)) && phase == UPDATED_PHASE) {
+        if ((StringUtils.isEmpty(processedByOperatorVer) || !processedByOperatorVer.equalsIgnoreCase(deploymentSessionId)) && (phase == UPDATED_PHASE || INVALID_CONFIGURATION)) {
             log.info("SessionId on CR={} and Operator={} are different, clear conditions and reconcile.", processedByOperatorVer, deploymentSessionId);
             resource.getStatus().removeAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY);
             resource.getStatus().getConditions().clear();
