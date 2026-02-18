@@ -46,7 +46,7 @@ public class CompositeStructureChangeListener {
             CompositeStructureConfigMapPayload payload = compositeStructureTransformer.transform(event.getValues());
             log.debug("Transformed composite structure: {}", payload);
 
-            String json = objectMapper.writeValueAsString(payload);
+            String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload);
             Map<String, String> compositeStructureContent = Map.of(CONFIG_MAP_DATA_KEY, json);
 
             Composite composite = compositeCRHolder.get();
