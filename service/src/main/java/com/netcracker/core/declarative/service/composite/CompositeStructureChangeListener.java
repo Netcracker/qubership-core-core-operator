@@ -66,4 +66,10 @@ public class CompositeStructureChangeListener {
             log.error("Failed to process composite structure update from Consul", e);
         }
     }
+
+    public void newShinyMethod() {
+        System.out.println("1");
+        System.out.println("2");
+        System.out.println("3");
+    }
 }
