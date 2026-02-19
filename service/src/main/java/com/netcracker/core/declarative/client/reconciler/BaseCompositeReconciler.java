@@ -1,25 +1,25 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.core.declarative.client.rest.Condition;
+import com.netcracker.core.declarative.client.rest.ProcessStatus;
+import com.netcracker.core.declarative.exception.NoopConsulException;
+import com.netcracker.core.declarative.model.CompositeMembersList;
+import com.netcracker.core.declarative.resources.base.CoreCondition;
+import com.netcracker.core.declarative.resources.base.CoreResource;
+import com.netcracker.core.declarative.resources.base.Phase;
+import com.netcracker.core.declarative.resources.composite.Composite;
+import com.netcracker.core.declarative.service.CompositeCRHolder;
+import com.netcracker.core.declarative.service.CompositeConsulUpdater;
+import com.netcracker.core.declarative.service.CompositeSpec;
+import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import com.netcracker.core.declarative.client.rest.Condition;
-import com.netcracker.core.declarative.client.rest.ProcessStatus;
-import com.netcracker.core.declarative.exception.NoopConsulException;
-import com.netcracker.core.declarative.resources.base.CoreCondition;
-import com.netcracker.core.declarative.resources.base.CoreResource;
-import com.netcracker.core.declarative.resources.base.Phase;
-import com.netcracker.core.declarative.resources.composite.Composite;
-import com.netcracker.core.declarative.service.CompositeConsulUpdater;
-import com.netcracker.core.declarative.service.CompositeSpec;
-import com.netcracker.core.declarative.service.CompositeCRHolder;
-import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Function;
 
 import static com.netcracker.core.declarative.client.constants.Constants.VALIDATED_STEP_NAME;
@@ -86,7 +86,7 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             }
         }
 
-        Set<String> namespaceList = compositeConsulUpdater.getCompositeMembers(compositeSpec.getCompositeId());
+        CompositeMembersList compositeMembersList = compositeConsulUpdater.getCompositeMembers(compositeSpec.getCompositeId());
 
         log.info("Update XaaSes...");
         for (CompositeStructureUpdateNotifier step : compositeStructureUpdateNotifiers) {
@@ -97,7 +97,7 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
 
             try {
                 log.info("Send composite structure to {}", step.getXaasName());
-                step.notify(compositeSpec.getCompositeId(), namespaceList);
+                step.notify(compositeSpec.getCompositeId(), compositeMembersList.members(), compositeMembersList.modifyIndex());
                 completeStep(composite, stepId);
             } catch (Exception e) {
                 log.error("Notification failed for {}", step.getXaasName(), e);
@@ -118,8 +118,7 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             log.info("CompositeStructure updated -> start CompositeStructure watcher for compositeId = {}", compositeSpec.getCompositeId());
             compositeCRHolder.set(composite);
             compositeStructureWatcher.start(compositeSpec.getCompositeId());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Cannot start compositeStructureWatcher", e);
         }
 

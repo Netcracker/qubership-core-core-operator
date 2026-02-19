@@ -1,14 +1,11 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import com.netcracker.core.declarative.client.rest.CompositeClient;
+import com.netcracker.core.declarative.model.CompositeMembersList;
 import com.netcracker.core.declarative.resources.base.CoreCondition;
 import com.netcracker.core.declarative.resources.base.CoreResource;
 import com.netcracker.core.declarative.resources.composite.Composite;
-import com.netcracker.core.declarative.service.CompositeConsulUpdater;
-import com.netcracker.core.declarative.service.CompositeSpec;
-import com.netcracker.core.declarative.service.CompositeCRHolder;
-import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
-import com.netcracker.core.declarative.service.NoopCompositeConsulUpdaterImpl;
+import com.netcracker.core.declarative.service.*;
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.runtime.RawExtension;
@@ -19,18 +16,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
-import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.MAAS_NAME;
-import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.XAAS_UPDATED_STEP_NAME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class CompositeReconcilerTest {
 
@@ -38,9 +29,13 @@ class CompositeReconcilerTest {
     void reconcileInternal() throws Exception {
         CompositeClient compositeClient = mock(CompositeClient.class);
         when(compositeClient.structures(any())).thenReturn(Response.noContent().build());
+
+        CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
+        when(compositeConsulUpdater.getCompositeMembers(any())).thenReturn(new CompositeMembersList(123L, Set.of()));
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 mock(KubernetesClient.class),
-                mock(CompositeConsulUpdater.class),
+                compositeConsulUpdater,
                 List.of(
                         new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient),
                         new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
@@ -64,6 +59,33 @@ class CompositeReconcilerTest {
 
         assertNotNull(findConditionByType(composite, XAAS_UPDATED_STEP_NAME.apply(DBAAS_NAME)));
         assertTrue(findConditionByType(composite, XAAS_UPDATED_STEP_NAME.apply(DBAAS_NAME)).getStatus());
+    }
+
+    @Test
+    void reconcileInternal_modify_index() throws Exception {
+        CompositeClient compositeClient = mock(CompositeClient.class);
+        when(compositeClient.structures(any())).thenReturn(Response.noContent().build());
+
+        CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
+        when(compositeConsulUpdater.getCompositeMembers(any())).thenReturn(new CompositeMembersList(123L, Set.of("ns-1", "ns-2")));
+
+        CompositeReconciler compositeReconciler = new CompositeReconciler(
+                mock(KubernetesClient.class),
+                compositeConsulUpdater,
+                List.of(
+                        new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient),
+                        new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
+                ),
+                mock(CompositeStructureWatcher.class),
+                new CompositeCRHolder()
+        );
+
+        Composite composite = new Composite();
+        composite.setSpec(new RawExtension(new CompositeSpec("", "ns-1", "", null)));
+        compositeReconciler.reconcileInternal(composite);
+
+        verify(compositeClient, times(2)).structures(new CompositeClient.Request("ns-1", Set.of("ns-1", "ns-2"), 123L));
+
     }
 
     @Test
@@ -165,9 +187,12 @@ class CompositeReconcilerTest {
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
 
+        CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
+        when(compositeConsulUpdater.getCompositeMembers(any())).thenReturn(new CompositeMembersList(123L, Set.of()));
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
-                mock(CompositeConsulUpdater.class),
+                compositeConsulUpdater,
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder()
@@ -204,9 +229,12 @@ class CompositeReconcilerTest {
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
 
+        CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
+        when(compositeConsulUpdater.getCompositeMembers(any())).thenReturn(new CompositeMembersList(123L, Set.of()));
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
-                mock(CompositeConsulUpdater.class),
+                compositeConsulUpdater,
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder()
@@ -246,9 +274,12 @@ class CompositeReconcilerTest {
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
 
+        CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
+        when(compositeConsulUpdater.getCompositeMembers(any())).thenReturn(new CompositeMembersList(123L, Set.of()));
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
-                mock(CompositeConsulUpdater.class),
+                compositeConsulUpdater,
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder()
