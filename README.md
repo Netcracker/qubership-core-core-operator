@@ -1,4 +1,4 @@
-[![Maven build](https://github.com/Netcracker/qubership-core-core-operator/actions/workflows/maven-build.yaml/badge.svg)](https://github.com/Netcracker/qubership-core-core-operator/actions/workflows/maven-build.yaml)
+[![Maven build](https://github.com/Netcracker/qubership-core-core-operator/actions/workflows/maven-deploy.yml/badge.svg)](https://github.com/Netcracker/qubership-core-core-operator/actions/workflows/maven-deploy.yml)
 
 # code-with-quarkus
 
