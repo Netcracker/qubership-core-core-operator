@@ -41,7 +41,10 @@ public class Configuration {
     @Named("meshDeclarativeClient")
     @ApplicationScoped
     public MeshClientV3 meshDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.mesh-client-v3.url") String meshUrl, RestClientCustomizer restClientCustomizer) {
-        return restClientCustomizer.customize(new QuarkusRestClientBuilder().baseUri(URI.create(meshUrl)))
+        log.debug("creating Mesh REST client for {} with 2s connect/5s read timeout", meshUrl);
+        return restClientCustomizer.customize(new QuarkusRestClientBuilder().baseUri(URI.create(meshUrl))
+                .readTimeout(5, TimeUnit.SECONDS)
+                .connectTimeout(2, TimeUnit.SECONDS))
                 .build(MeshClientV3.class);
     }
 
