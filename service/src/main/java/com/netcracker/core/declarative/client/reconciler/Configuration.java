@@ -163,9 +163,13 @@ public class Configuration {
         RestClientBuilder customize(RestClientBuilder builder);
     }
 
-    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl, RestClientCustomizer restClientCustomizer) {
+    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl,
+                                                      RestClientCustomizer restClientCustomizer) {
+        log.debug("creating declarative REST client for {} with 2s connect/5s read timeout", xaasUrl);
         return restClientCustomizer.customize(new QuarkusRestClientBuilder()
-                        .baseUri(URI.create(xaasUrl)))
-                .build(DeclarativeClient.class);
+                    .baseUri(URI.create(xaasUrl))
+                    .readTimeout(5, TimeUnit.SECONDS)
+                    .connectTimeout(2, TimeUnit.SECONDS))
+            .build(DeclarativeClient.class);
     }
 }

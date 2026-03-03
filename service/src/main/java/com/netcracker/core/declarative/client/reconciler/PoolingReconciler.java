@@ -29,7 +29,9 @@ public abstract class PoolingReconciler<T extends CoreResource> extends CoreReco
     protected UpdateControl<T> reconcilePooling(T resource) throws Exception {
         log.debug("Async reconcile for resource {}", resource);
         String trackingID = resource.getStatus().getTrackingId();
+        log.debug("calling declarativeClient.getStatus(apiVersion={}, trackingID={})", getApiVersion(), trackingID);
         try (Response response = declarativeClient.getStatus(getApiVersion(), trackingID)) {
+            log.debug("getStatus returned HTTP {}", response.getStatusInfo().getStatusCode());
             if (response.getStatusInfo().getStatusCode() == SC_NOT_FOUND) {
                 log.error("Failed to find entity with TrackingID={} on remote", trackingID);
                 throw new NotFoundException(String.format("Process with TrackingID=%s not found", trackingID));
@@ -43,6 +45,9 @@ public abstract class PoolingReconciler<T extends CoreResource> extends CoreReco
                 case FAILED -> setPhaseAndReschedule(resource, Phase.INVALID_CONFIGURATION);
                 default -> setPhaseAndReschedule(resource, Phase.WAITING_FOR_DEPENDS);
             };
+        } catch (Exception e) {
+            log.debug("exception while retrieving status for trackingID={}", trackingID, e);
+            throw e;
         }
     }
 }
