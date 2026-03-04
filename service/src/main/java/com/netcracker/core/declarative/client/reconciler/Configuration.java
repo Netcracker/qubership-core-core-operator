@@ -40,8 +40,10 @@ public class Configuration {
     @Produces
     @Named("meshDeclarativeClient")
     @ApplicationScoped
-    public MeshClientV3 meshDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.mesh-client-v3.url") String meshUrl, RestClientCustomizer restClientCustomizer) {
-        return restClientCustomizer.customize(new QuarkusRestClientBuilder().baseUri(URI.create(meshUrl)))
+    public MeshClientV3 meshDeclarativeClient(
+            @ConfigProperty(name = "quarkus.rest-client.mesh-client-v3.url") String meshUrl,
+            RestClientCustomizer restClientCustomizer) {
+        return restClientCustomizer.customize(baseBuilder(meshUrl))
                 .build(MeshClientV3.class);
     }
 
@@ -159,13 +161,28 @@ public class Configuration {
         return builder -> builder;
     }
 
+    @ConfigProperty(name = "cloud.declarative.rest.connect-timeout-ms", defaultValue = "2000")
+    long declarativeConnectTimeoutMs;
+
+    @ConfigProperty(name = "cloud.declarative.rest.read-timeout-ms", defaultValue = "5000")
+    long declarativeReadTimeoutMs;
+
     public interface RestClientCustomizer {
         RestClientBuilder customize(RestClientBuilder builder);
     }
 
-    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl, RestClientCustomizer restClientCustomizer) {
-        return restClientCustomizer.customize(new QuarkusRestClientBuilder()
-                        .baseUri(URI.create(xaasUrl)))
-                .build(DeclarativeClient.class);
+    private RestClientBuilder baseBuilder(String baseUrl) {
+        log.debug("creating declarative REST client for {} with connect={}ms read={}ms",
+                baseUrl, declarativeConnectTimeoutMs, declarativeReadTimeoutMs);
+        return new QuarkusRestClientBuilder()
+                .baseUri(URI.create(baseUrl))
+                .connectTimeout(declarativeConnectTimeoutMs, TimeUnit.MILLISECONDS)
+                .readTimeout(declarativeReadTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl,
+                                                      RestClientCustomizer restClientCustomizer) {
+        return restClientCustomizer.customize(baseBuilder(xaasUrl))
+            .build(DeclarativeClient.class);
     }
 }
