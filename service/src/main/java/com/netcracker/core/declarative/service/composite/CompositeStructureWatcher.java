@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 @ApplicationScoped
 @Slf4j
 public class CompositeStructureWatcher {
-    public static final String CONFIG_MAP_NAME = "composite-structure";
+    public static final String CONFIG_MAP_NAME = "topology";
     private static final String COMPOSITE_STRUCTURE_KEY_TEMPLATE = "composite/%s/structure";
 
     private final ConsulLongPoller consulLongPoller;

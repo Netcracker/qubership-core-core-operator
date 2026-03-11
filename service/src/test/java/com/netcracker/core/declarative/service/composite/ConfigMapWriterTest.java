@@ -17,7 +17,7 @@ import static org.mockito.Mockito.verify;
 class ConfigMapWriterTest {
 
     private static final String NAMESPACE = "test-namespace";
-    private static final String CONFIG_MAP_NAME = "composite-structure";
+    private static final String CONFIG_MAP_NAME = "topology";
 
     private ConfigMapClient configMapClient;
     private HasMetadata owner;
