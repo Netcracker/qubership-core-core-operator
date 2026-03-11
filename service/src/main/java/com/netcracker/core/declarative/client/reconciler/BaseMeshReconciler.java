@@ -32,13 +32,18 @@ public abstract class BaseMeshReconciler<T extends Mesh> extends CoreReconciler<
     public UpdateControl<T> reconcileInternal(T mesh) throws Exception {
         log.debug("Reconciling Mesh entity {}", mesh);
         DeclarativeRequest request = declarativeRequestBuilder(mesh);
+        log.debug("calling meshClient.applyConfig for mesh={} kind={}", mesh.getMetadata().getName(), mesh.getSubKind());
         try (Response response = meshClient.applyConfig(request)) {
+            log.debug("applyConfig returned HTTP {} for mesh={}", response.getStatusInfo().getStatusCode(), mesh.getMetadata().getName());
             if (response.getStatusInfo().getStatusCode() == SC_OK) {
                 return setPhaseAndReschedule(mesh, UPDATED_PHASE);
             } else {
                 log.error("Unexpected status={} received from Mesh", response.getStatusInfo().getStatusCode());
                 throw new ServerErrorException(String.format("Unexpected status=%s received from Mesh", response.getStatusInfo().getStatusCode()), 500);
             }
+        } catch (Exception e) {
+            log.debug("exception while applying config for mesh={}", mesh.getMetadata().getName(), e);
+            throw e;
         }
     }
 
