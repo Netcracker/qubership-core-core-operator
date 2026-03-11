@@ -2,7 +2,7 @@
 
 ## Overview
 
-Automatic synchronization of **Composite Structure** topology from Consul KV store to Kubernetes ConfigMaps. After successful reconciliation of a Composite CR, the mechanism watches Consul for structure changes and maintains a `composite-structure` ConfigMap with the current topology (baseline and satellite namespaces with blue-green deployment roles).
+Automatic synchronization of **Composite Structure** topology from Consul KV store to Kubernetes ConfigMaps. After successful reconciliation of a Composite CR, the mechanism watches Consul for structure changes and maintains a `topology` ConfigMap with the current topology (baseline and satellite namespaces with blue-green deployment roles).
 
 ---
 
@@ -27,7 +27,7 @@ When any part of the composite structure changes in Consul, **every core-operato
 
 1. **Watches Consul for changes** - Continuously monitors the complete composite structure in Consul
 2. **Aggregates the full topology** - Collects all namespace contributions into a unified view
-3. **Publishes to local ConfigMap** - Writes the complete structure to a `composite-structure` ConfigMap in its namespace
+3. **Publishes to local ConfigMap** - Writes the complete structure to a `topology` ConfigMap in its namespace
 
 **Result**: Every namespace gets a **local, up-to-date ConfigMap** containing the full composite structure, enabling applications and controllers to discover the topology without direct Consul access.
 
@@ -107,12 +107,12 @@ composite/baseline-origin/structure/satellite-peer/bluegreenRole = peer
 composite/baseline-origin/structure/satellite-peer/controllerNamespace = satellite-controller
 ```
 
-**In `composite-structure` ConfigMap**:
+**In `topology` ConfigMap**:
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: composite-structure
+  name: topology
   namespace: operator-namespace
   labels:
     app.kubernetes.io/managed-by: core-operator
@@ -267,7 +267,7 @@ sequenceDiagram
             deactivate Writer
             deactivate Listener
 
-            Note over K8s: composite-structure ConfigMap<br/>updated with full topology
+            Note over K8s: topology ConfigMap<br/>updated with full topology
         else Not Owner
             Note over Watcher: Another operator manages ConfigMap
             Watcher->>Watcher: Stop polling (if running)

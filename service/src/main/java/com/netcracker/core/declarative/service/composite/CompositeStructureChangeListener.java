@@ -17,7 +17,7 @@ import static com.netcracker.core.declarative.service.composite.CompositeStructu
 
 /**
  * Handles {@link CompositeStructureUpdateEvent} by transforming Consul data
- * and persisting it to the {@code composite-structure} ConfigMap.
+ * and persisting it to the {@code topology} ConfigMap.
  */
 @ApplicationScoped
 @Slf4j
