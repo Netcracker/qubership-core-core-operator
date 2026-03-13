@@ -113,13 +113,13 @@
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
             <artifactId>operator-framework-junit-5</artifactId>
-            <version>4.9.7</version>
+            <version>5.2.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
             <artifactId>jenvtest</artifactId>
-            <version>0.9.7</version>
+            <version>v9.2.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
