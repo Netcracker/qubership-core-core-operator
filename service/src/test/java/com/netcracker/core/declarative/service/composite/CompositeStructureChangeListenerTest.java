@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.resources.composite.Composite;
+import com.netcracker.core.declarative.service.CloudProviderDetector;
 import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
@@ -15,16 +16,16 @@ import org.mockito.ArgumentCaptor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.netcracker.core.declarative.service.composite.CompositeStructureWatcher.CONFIG_MAP_NAME;
+import static com.netcracker.core.declarative.service.composite.model.CloudProvider.AKS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class CompositeStructureChangeListenerTest {
-
-    private static final String CLOUD_PROVIDER = "test-provider";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private ConfigMapWriter configMapWriter;
@@ -41,7 +42,7 @@ class CompositeStructureChangeListenerTest {
         // By default, return a mock Composite CR (non-null)
         when(compositeCRHolder.get()).thenReturn(mock(Composite.class));
 
-        CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer(CLOUD_PROVIDER);
+        CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer(Optional.of(AKS.name()), mock(CloudProviderDetector.class));
         listener = new CompositeStructureChangeListener(
                 objectMapper,
                 configMapWriter,
@@ -64,7 +65,7 @@ class CompositeStructureChangeListenerTest {
         assertNotNull(json);
 
         JsonNode root = objectMapper.readTree(json);
-        assertEquals(CLOUD_PROVIDER, root.get("cloudProvider").asText());
+        assertEquals(AKS, CloudProviderDetector.CloudProvider.valueOf(root.get("cloudProvider").asText()));
 
         JsonNode composite = root.get("composite");
         assertNotNull(composite);
@@ -97,7 +98,7 @@ class CompositeStructureChangeListenerTest {
         assertNotNull(json);
 
         JsonNode root = objectMapper.readTree(json);
-        assertEquals(CLOUD_PROVIDER, root.get("cloudProvider").asText());
+        assertEquals(AKS, CloudProviderDetector.CloudProvider.valueOf(root.get("cloudProvider").asText()));
         // composite should be empty/null when no values
         assertFalse(root.has("composite") && root.get("composite").has("baseline"));
     }
