@@ -8,6 +8,7 @@ import com.netcracker.core.declarative.resources.composite.Composite;
 import com.netcracker.core.declarative.service.CloudProviderDetector;
 import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
+import com.netcracker.core.declarative.service.composite.model.CloudProvider;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,7 @@ class CompositeStructureChangeListenerTest {
         assertNotNull(json);
 
         JsonNode root = objectMapper.readTree(json);
-        assertEquals(AKS, CloudProviderDetector.CloudProvider.valueOf(root.get("cloudProvider").asText()));
+        assertEquals(AKS, CloudProvider.valueOf(root.get("cloudProvider").asText()));
 
         JsonNode composite = root.get("composite");
         assertNotNull(composite);
@@ -98,7 +99,7 @@ class CompositeStructureChangeListenerTest {
         assertNotNull(json);
 
         JsonNode root = objectMapper.readTree(json);
-        assertEquals(AKS, CloudProviderDetector.CloudProvider.valueOf(root.get("cloudProvider").asText()));
+        assertEquals(AKS, CloudProvider.valueOf(root.get("cloudProvider").asText()));
         // composite should be empty/null when no values
         assertFalse(root.has("composite") && root.get("composite").has("baseline"));
     }
