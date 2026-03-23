@@ -6,7 +6,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.URL;
 import java.net.UnknownHostException;
 
 @Slf4j
@@ -16,6 +18,8 @@ public class CloudProviderDetector {
     protected static final String GKE_DNS_PROBE = "metadata.google.internal.";
     protected static final String EKS_DNS_PROBE = "ec2.internal.";
     protected static final String AKS_DNS_PROBE = "aks-metadata.azure.com";
+
+    private static final String METADATA_IP = "169.254.169.254";
 
     private CloudProvider cloudProvider;
 
@@ -50,17 +54,31 @@ public class CloudProviderDetector {
         }
     }
 
-    private boolean isEks() {
+    private static boolean isEks() {
         try {
-            InetAddress.getByName(EKS_DNS_PROBE);
-            log.info("EKS detected via DNS resolution of {}", EKS_DNS_PROBE);
-            return true;
-        } catch (UnknownHostException e) {
-            log.info(e.getMessage());
-            log.info("EKS DNS probe failed for {}", EKS_DNS_PROBE);
+            InetAddress.getByName(METADATA_IP);
+
+            HttpURLConnection conn = (HttpURLConnection) new URL("http://169.254.169.254/latest/meta-data/").openConnection();
+            conn.setConnectTimeout(300);
+            conn.setReadTimeout(300);
+
+            return conn.getResponseCode() == 200;
+        } catch (Exception ignored) {
             return false;
         }
     }
+
+//    private boolean isEks() {
+//        try {
+//            InetAddress.getByName(EKS_DNS_PROBE);
+//            log.info("EKS detected via DNS resolution of {}", EKS_DNS_PROBE);
+//            return true;
+//        } catch (UnknownHostException e) {
+//            log.info(e.getMessage());
+//            log.info("EKS DNS probe failed for {}", EKS_DNS_PROBE);
+//            return false;
+//        }
+//    }
 
     private boolean isAks() {
         try {
