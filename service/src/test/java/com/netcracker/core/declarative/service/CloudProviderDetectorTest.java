@@ -6,15 +6,12 @@ import org.junit.jupiter.api.Test;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+import static com.netcracker.core.declarative.service.CloudProviderDetector.*;
 import static com.netcracker.core.declarative.service.composite.model.CloudProvider.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 class CloudProviderDetectorTest {
-
-    private static final String GKE_DNS_PROBE = "metadata.google.internal";
-    private static final String EKS_DNS_PROBE = "ec2.internal";
-    private static final String AKS_DNS_PROBE = "aks-metadata.azure.com";
 
     @Test
     void detectsGke() throws Exception {
