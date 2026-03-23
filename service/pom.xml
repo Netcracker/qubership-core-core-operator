@@ -19,6 +19,8 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
+        <error-handling.version>3.4.3</error-handling.version>
+        <quarkus-extensions.version>8.4.3</quarkus-extensions.version>
     </properties>
 
     <dependencyManagement>
@@ -82,12 +84,12 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>core-error-handling-rest</artifactId>
-            <version>3.4.1</version>
+            <version>${error-handling.version}</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>consul-client</artifactId>
-            <version>8.4.1</version>
+            <version>${quarkus-extensions.version}</version>
         </dependency>
         <!-- Other -->
         <dependency>
