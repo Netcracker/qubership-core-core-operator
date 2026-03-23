@@ -53,10 +53,11 @@ public class CloudProviderDetector {
     private boolean isEks() {
         try {
             InetAddress.getByName(EKS_DNS_PROBE);
-            log.debug("EKS detected via DNS resolution of {}", EKS_DNS_PROBE);
+            log.info("EKS detected via DNS resolution of {}", EKS_DNS_PROBE);
             return true;
         } catch (UnknownHostException e) {
-            log.debug("EKS DNS probe failed for {}", EKS_DNS_PROBE);
+            log.info(e.getMessage());
+            log.info("EKS DNS probe failed for {}", EKS_DNS_PROBE);
             return false;
         }
     }
