@@ -13,8 +13,8 @@ import java.net.UnknownHostException;
 @Getter
 @ApplicationScoped
 public class CloudProviderDetector {
-    private static final String GKE_DNS_PROBE = "metadata.google.internal";
-    private static final String EKS_DNS_PROBE = "ec2.internal";
+    private static final String GKE_DNS_PROBE = "metadata.google.internal.";
+    private static final String EKS_DNS_PROBE = "ec2.internal.";
     private static final String AKS_DNS_PROBE = "aks-metadata.azure.com";
 
     private CloudProvider cloudProvider;
