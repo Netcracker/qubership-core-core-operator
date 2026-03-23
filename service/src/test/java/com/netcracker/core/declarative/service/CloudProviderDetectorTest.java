@@ -36,7 +36,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_returnsGke_whenMetadataFlavorIsGoogle() throws Exception {
+    void detect_returnsGke_whenMetadataFlavorIsGoogle() {
         server.createContext("/computeMetadata/v1/", exchange -> {
             exchange.getResponseHeaders().add("Metadata-Flavor", "Google");
             exchange.sendResponseHeaders(200, 0);
@@ -49,7 +49,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_notGke_whenMetadataFlavorHeaderAbsent() throws Exception {
+    void detect_notGke_whenMetadataFlavorHeaderAbsent() {
         server.createContext("/computeMetadata/v1/", exchange -> {
             exchange.sendResponseHeaders(200, 0);
             exchange.getResponseBody().close();
@@ -61,7 +61,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_returnsEks_whenImdsV1Returns200() throws Exception {
+    void detect_returnsEks_whenImdsV1Returns200() {
         stubNotFound("/computeMetadata/v1/");
         server.createContext("/latest/meta-data/", exchange -> {
             exchange.sendResponseHeaders(200, 0);
@@ -73,7 +73,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_returnsEks_whenImdsV2Returns401() throws Exception {
+    void detect_returnsEks_whenImdsV2Returns401() {
         stubNotFound("/computeMetadata/v1/");
         server.createContext("/latest/meta-data/", exchange -> {
             exchange.sendResponseHeaders(401, 0);
@@ -85,7 +85,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_notEks_whenImdsReturns403() throws Exception {
+    void detect_notEks_whenImdsReturns403() {
         stubNotFound("/computeMetadata/v1/");
         server.createContext("/latest/meta-data/", exchange -> {
             exchange.sendResponseHeaders(403, 0);
@@ -97,7 +97,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_returnsAks_whenAzureInstanceEndpointReturns200() throws Exception {
+    void detect_returnsAks_whenAzureInstanceEndpointReturns200() {
         stubNotFound("/computeMetadata/v1/");
         stubNotFound("/latest/meta-data/");
         server.createContext("/metadata/instance", exchange -> {
@@ -112,7 +112,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_notAks_whenAzureEndpointReturns404() throws Exception {
+    void detect_notAks_whenAzureEndpointReturns404() {
         stubNotFound("/computeMetadata/v1/");
         stubNotFound("/latest/meta-data/");
         stubNotFound("/metadata/instance");
@@ -131,7 +131,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_returnsOnPrem_whenAllEndpointsReturn500() throws Exception {
+    void detect_returnsOnPrem_whenAllEndpointsReturn500() {
         stubStatus("/computeMetadata/v1/", 500);
         stubStatus("/latest/meta-data/", 500);
         stubStatus("/metadata/instance", 500);
@@ -140,7 +140,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void detect_prefersGke_whenBothGkeAndEksProbesSucceed() throws Exception {
+    void detect_prefersGke_whenBothGkeAndEksProbesSucceed() {
         server.createContext("/computeMetadata/v1/", exchange -> {
             exchange.getResponseHeaders().add("Metadata-Flavor", "Google");
             exchange.sendResponseHeaders(200, 0);
@@ -156,7 +156,7 @@ class CloudProviderDetectorTest {
     }
 
     @Test
-    void init_setsCloudProviderField() throws Exception {
+    void init_setsCloudProviderField() {
         stubNotFound("/computeMetadata/v1/");
         stubNotFound("/latest/meta-data/");
         stubNotFound("/metadata/instance");
