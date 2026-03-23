@@ -14,6 +14,12 @@ import java.net.URI;
 @ApplicationScoped
 public class CloudProviderDetector {
 
+    /**
+     * Link-local address reserved by IANA for cloud instance metadata services.
+     * Used by AWS (IMDSv1/v2), GCP, and Azure — not a general-purpose IP.
+     * Sonar S1313 suppressed because this is an infrastructure constant, not a hardcoded endpoint.
+     */
+    @SuppressWarnings("java:S1313")
     protected static final String DEFAULT_METADATA_URL = "http://169.254.169.254";
     private static final int CONNECT_TIMEOUT_MS = 300;
     private static final int READ_TIMEOUT_MS = 300;
