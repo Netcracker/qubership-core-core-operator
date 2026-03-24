@@ -19,8 +19,8 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
-        <error-handling.version>3.4.3</error-handling.version>
-        <quarkus-extensions.version>8.4.3</quarkus-extensions.version>
+        <error-handling.version>4.0.0</error-handling.version>
+        <quarkus-extensions.version>9.0.0</quarkus-extensions.version>
     </properties>
 
     <dependencyManagement>
@@ -115,13 +115,13 @@
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
             <artifactId>operator-framework-junit-5</artifactId>
-            <version>4.9.7</version>
+            <version>5.2.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
             <artifactId>jenvtest</artifactId>
-            <version>0.9.7</version>
+            <version>v9.2.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
