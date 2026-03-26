@@ -9,8 +9,7 @@ public enum CloudProvider {
         return Arrays.stream(values())
                 .filter(cp -> cp.name().equalsIgnoreCase(value))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Invalid CLOUD_PROVIDER value: '" + value + "'. " +
-                                "Must be one of: " + Arrays.toString(values())));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid CLOUD_PROVIDER value: '%s'. Must be one of: %s"
+                        .formatted(value, Arrays.toString(values()))));
     }
 }

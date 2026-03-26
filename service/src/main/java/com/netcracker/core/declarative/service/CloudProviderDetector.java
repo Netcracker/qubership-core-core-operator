@@ -21,8 +21,8 @@ public class CloudProviderDetector {
      */
     @SuppressWarnings("java:S1313")
     protected static final String DEFAULT_METADATA_URL = "http://169.254.169.254";
-    private static final int CONNECT_TIMEOUT_MS = 300;
-    private static final int READ_TIMEOUT_MS = 300;
+    private static final int CONNECT_TIMEOUT_MS = 10_00;
+    private static final int READ_TIMEOUT_MS = 10_000;
 
     private final String metadataUrl;
     private CloudProvider cloudProvider;
@@ -61,7 +61,7 @@ public class CloudProviderDetector {
             int code = conn.getResponseCode();
             String flavor = conn.getHeaderField("Metadata-Flavor");
             log.debug("GKE probe: status={} Metadata-Flavor={}", code, flavor);
-            return "Google".equals(flavor);
+            return code == 200 && "Google".equals(flavor);
         } catch (Exception e) {
             log.debug("GKE probe failed: {}", e.toString());
             return false;
