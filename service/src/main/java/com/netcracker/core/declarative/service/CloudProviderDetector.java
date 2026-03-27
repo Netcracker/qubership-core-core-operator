@@ -21,7 +21,7 @@ public class CloudProviderDetector {
      */
     @SuppressWarnings("java:S1313")
     protected static final String DEFAULT_METADATA_URL = "http://169.254.169.254";
-    private static final int CONNECT_TIMEOUT_MS = 10_00;
+    private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_MS = 10_000;
 
     private final String metadataUrl;
