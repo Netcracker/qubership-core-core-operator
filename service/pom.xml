@@ -19,8 +19,8 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
-        <error-handling.version>4.0.0</error-handling.version>
-        <quarkus-extensions.version>9.0.0</quarkus-extensions.version>
+        <error-handling.version>4.0.1</error-handling.version>
+        <quarkus-extensions.version>9.0.1</quarkus-extensions.version>
     </properties>
 
     <dependencyManagement>
