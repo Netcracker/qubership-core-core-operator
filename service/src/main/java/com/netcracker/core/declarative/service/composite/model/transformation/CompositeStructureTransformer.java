@@ -47,7 +47,7 @@ public class CompositeStructureTransformer {
                 buildBaseline(namespaces),
                 buildSatellites(namespaces)
         );
-        return new CompositeStructureConfigMapPayload(cloudProvider.name(), compositeStructure);
+        return new CompositeStructureConfigMapPayload(cloudProvider.getValue(), compositeStructure);
     }
 
     private List<Namespace> parseNamespaces(List<GetValue> values) {
