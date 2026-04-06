@@ -57,7 +57,7 @@ class CloudProviderDetectorTest {
         stubNotFound("/latest/meta-data/");
         stubNotFound("/metadata/instance");
 
-        assertThat(detector.detect()).isEqualTo(CloudProvider.OnPrem);
+        assertThat(detector.detect()).isEqualTo(CloudProvider.ON_PREM);
     }
 
     @Test
@@ -93,7 +93,7 @@ class CloudProviderDetectorTest {
         });
         stubNotFound("/metadata/instance");
 
-        assertThat(detector.detect()).isEqualTo(CloudProvider.OnPrem);
+        assertThat(detector.detect()).isEqualTo(CloudProvider.ON_PREM);
     }
 
     @Test
@@ -117,7 +117,7 @@ class CloudProviderDetectorTest {
         stubNotFound("/latest/meta-data/");
         stubNotFound("/metadata/instance");
 
-        assertThat(detector.detect()).isEqualTo(CloudProvider.OnPrem);
+        assertThat(detector.detect()).isEqualTo(CloudProvider.ON_PREM);
     }
 
     @Test
@@ -127,7 +127,7 @@ class CloudProviderDetectorTest {
 
         detector.init();
 
-        assertThat(detector.getCloudProvider()).isEqualTo(CloudProvider.OnPrem);
+        assertThat(detector.getCloudProvider()).isEqualTo(CloudProvider.ON_PREM);
     }
 
     @Test
@@ -136,7 +136,7 @@ class CloudProviderDetectorTest {
         stubStatus("/latest/meta-data/", 500);
         stubStatus("/metadata/instance", 500);
 
-        assertThat(detector.detect()).isEqualTo(CloudProvider.OnPrem);
+        assertThat(detector.detect()).isEqualTo(CloudProvider.ON_PREM);
     }
 
     @Test
@@ -163,7 +163,7 @@ class CloudProviderDetectorTest {
 
         detector.init();
 
-        assertThat(detector.getCloudProvider()).isEqualTo(CloudProvider.OnPrem);
+        assertThat(detector.getCloudProvider()).isEqualTo(CloudProvider.ON_PREM);
     }
 
     private void stubNotFound(String path) {

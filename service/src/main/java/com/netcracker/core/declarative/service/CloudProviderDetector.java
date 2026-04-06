@@ -51,7 +51,7 @@ public class CloudProviderDetector {
         if (isAks()) {
             return CloudProvider.AKS;
         }
-        return CloudProvider.OnPrem;
+        return CloudProvider.ON_PREM;
     }
 
     private boolean isGke() {
