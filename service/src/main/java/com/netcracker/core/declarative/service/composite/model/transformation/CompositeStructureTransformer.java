@@ -1,6 +1,8 @@
 package com.netcracker.core.declarative.service.composite.model.transformation;
 
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
+import com.netcracker.core.declarative.service.CloudProviderDetector;
+import com.netcracker.core.declarative.service.composite.model.CloudProvider;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
@@ -24,13 +26,16 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CompositeStructureTransformer {
     private static final Pattern COMPOSITE_STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/(?<namespace>[^/]+)/(?<attribute>[^/]+)$");
-    private static final String DEFAULT_CLOUD_PROVIDER = "OnPrem";
 
-    private final String cloudProvider;
+    private final CloudProvider cloudProvider;
 
     @Inject
-    public CompositeStructureTransformer(@ConfigProperty(name = "CLOUD_PROVIDER", defaultValue = DEFAULT_CLOUD_PROVIDER) String cloudProvider) {
-        this.cloudProvider = cloudProvider;
+    public CompositeStructureTransformer(@ConfigProperty(name = "CLOUD_PROVIDER") Optional<String> cloudProvider, CloudProviderDetector cloudProviderDetector) {
+        this.cloudProvider = cloudProvider
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .map(CloudProvider::fromString)
+                .orElseGet(cloudProviderDetector::getCloudProvider);
     }
 
     public CompositeStructureConfigMapPayload transform(List<GetValue> values) {
@@ -42,7 +47,7 @@ public class CompositeStructureTransformer {
                 buildBaseline(namespaces),
                 buildSatellites(namespaces)
         );
-        return new CompositeStructureConfigMapPayload(cloudProvider, compositeStructure);
+        return new CompositeStructureConfigMapPayload(cloudProvider.getValue(), compositeStructure);
     }
 
     private List<Namespace> parseNamespaces(List<GetValue> values) {
@@ -152,10 +157,12 @@ public class CompositeStructureTransformer {
     }
 
 
-    private record ParsedEntry(String namespace, String attribute, String value) {}
+    private record ParsedEntry(String namespace, String attribute, String value) {
+    }
 
     private record Namespace(String name, CompositeRole compositeRole,
-                             BlueGreenRole blueGreenRole, String controllerNamespace) {}
+                             BlueGreenRole blueGreenRole, String controllerNamespace) {
+    }
 
     private enum CompositeRole {
         BASELINE,
