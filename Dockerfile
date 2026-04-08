@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.2.8
+FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.2.9
 LABEL maintainer="qubership"
 
 COPY --chown=10001:0 service/target/quarkus-app/lib/ /app/lib/
