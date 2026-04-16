@@ -7,6 +7,7 @@ import com.netcracker.core.declarative.client.rest.DeclarativeClient;
 import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
 import com.netcracker.core.declarative.service.*;
 import io.quarkus.arc.DefaultBean;
+import io.quarkus.kubernetes.client.KubernetesConfigCustomizer;
 import io.quarkus.restclient.runtime.QuarkusRestClientBuilder;
 import io.vertx.ext.consul.ConsulClient;
 import io.vertx.ext.consul.ConsulClientOptions;
@@ -18,6 +19,7 @@ import jakarta.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
+import io.fabric8.kubernetes.client.Config;
 
 import java.net.URI;
 import java.net.URL;
@@ -152,6 +154,15 @@ public class Configuration {
     @ApplicationScoped
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
+    }
+
+    @Produces
+    @ApplicationScoped
+    public KubernetesConfigCustomizer kubernetesConfigCustomizer() {
+        return (Config config) -> {
+            config.setWebsocketPingInterval(10_000L);
+            log.debug("KubernetesClient configured: websocketPingInterval=10000ms");
+        };
     }
 
     @Produces
