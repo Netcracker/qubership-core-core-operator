@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -20,9 +19,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @ApplicationScoped
 public class WatchdogService {
-
-    @Inject
-    Operator operator;
 
     @Inject
     KubernetesClient kubernetesClient;
@@ -108,8 +104,8 @@ public class WatchdogService {
         }
 
         log.error("[Watchdog] Confirmed stuck watch: clusterRV={} > reconcilerRV={} " +
-            "for {}s. Forcing reconnect.", clusterRV, reconcilerRV, elapsed);
-        reconnectWatches();
+            "for {}s. Triggering pod restart.", clusterRV, reconcilerRV, elapsed);
+        haltJvm();
     }
 
     private String fetchClusterResourceVersion() {
@@ -140,24 +136,7 @@ public class WatchdogService {
         }
     }
 
-    private void reconnectWatches() {
-        if (!reconnecting.compareAndSet(false, true)) {
-            log.debug("[Watchdog] Reconnect already in progress");
-            return;
-        }
-        try {
-            log.info("[Watchdog] Stopping operator to force watch reconnect...");
-            operator.stop();
-
-            log.info("[Watchdog] Starting operator...");
-            operator.start();
-
-            divergenceDetectedAt = null;
-            log.info("[Watchdog] Operator restarted successfully");
-        } catch (Exception e) {
-            log.error("[Watchdog] Restart failed: {}", e.getMessage(), e);
-        } finally {
-            reconnecting.set(false);
-        }
+    void haltJvm() {
+        Runtime.getRuntime().halt(0);
     }
 }
