@@ -146,26 +146,16 @@ public class WatchdogService {
             return;
         }
         try {
-            var controllers = operator.getRegisteredControllers();
-            log.info("[Watchdog] Refreshing {} controllers via namespace change",
-                controllers.size());
+            log.info("[Watchdog] Stopping operator to force watch reconnect...");
+            operator.stop();
 
-            controllers.forEach(rc -> {
-                String name = rc.getConfiguration().getName();
-                try {
-                    Set<String> namespaces = Set.of(namespace);
-                    rc.changeNamespaces(namespaces);
-                    log.info("[Watchdog] Controller '{}' watch reconnected", name);
-                } catch (Exception e) {
-                    log.error("[Watchdog] Failed to reconnect controller '{}': {}",
-                        name, e.getMessage());
-                }
-            });
+            log.info("[Watchdog] Starting operator...");
+            operator.start();
 
             divergenceDetectedAt = null;
-            log.info("[Watchdog] All watches reconnected successfully");
+            log.info("[Watchdog] Operator restarted successfully");
         } catch (Exception e) {
-            log.error("[Watchdog] Reconnect failed: {}", e.getMessage(), e);
+            log.error("[Watchdog] Restart failed: {}", e.getMessage(), e);
         } finally {
             reconnecting.set(false);
         }

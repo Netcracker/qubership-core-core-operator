@@ -34,18 +34,12 @@ class WatchdogServiceTest {
     @Mock
     KubernetesClient kubernetesClient;
 
-    @Mock
-    RegisteredController registeredController;
-
-    @Mock
-    ControllerConfiguration controllerConfiguration;
-
     @InjectMocks
     WatchdogService watchdogService;
 
     @BeforeEach
     void setUp() throws Exception {
-        setField("namespace", "core-1-core");
+        setField("namespace", "test-namespace");
         setField("watchdogEnabled", true);
         setField("confirmationSeconds", 60L);
         setField("probeTimeoutSeconds", 10L);
@@ -118,7 +112,7 @@ class WatchdogServiceTest {
         setField("probeTimeoutSeconds", 1L);
 
         MixedOperation op = mock(MixedOperation.class);
-        when(op.inNamespace("core-1-core")).thenReturn(op);
+        when(op.inNamespace("test-namespace")).thenReturn(op);
         when(op.list()).thenAnswer(inv -> { Thread.sleep(3_000); return null; });
         when(kubernetesClient.resources(Mesh.class)).thenReturn(op);
 
@@ -179,19 +173,6 @@ class WatchdogServiceTest {
     }
 
     @Test
-    void checkWatchHealth_reconnects_afterConfirmationElapsed() throws Exception {
-        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
-        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
-        setupClusterRV("42100");
-        setupControllers();
-
-        watchdogService.checkWatchHealth();
-
-        Set<String> expectedNs = Set.of("core-1-core");
-        verify(registeredController).changeNamespaces(expectedNs);
-    }
-
-    @Test
     void checkWatchHealth_resetsDivergence_whenVersionCatchesUp() throws Exception {
         setField("lastReconcilerResourceVersion", new AtomicReference<>("42100"));
         setField("divergenceDetectedAt", Instant.now().minusSeconds(30));
@@ -204,24 +185,15 @@ class WatchdogServiceTest {
     }
 
     @Test
-    void reconnect_reconnectsAllControllers() throws Exception {
+    void reconnect_callsStopAndStart() throws Exception {
         setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
         setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
         setupClusterRV("42100");
 
-        RegisteredController rc2 = mock(RegisteredController.class);
-        ControllerConfiguration cfg2 = mock(ControllerConfiguration.class);
-        when(rc2.getConfiguration()).thenReturn(cfg2);
-        when(cfg2.getName()).thenReturn("DBaaSReconciler");
-        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
-        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
-        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController, rc2));
-
         watchdogService.checkWatchHealth();
 
-        Set<String> expectedNs = Set.of("core-1-core");
-        verify(registeredController).changeNamespaces(expectedNs);
-        verify(rc2).changeNamespaces(expectedNs);
+        verify(operator).stop();
+        verify(operator).start();
     }
 
     @Test
@@ -229,7 +201,6 @@ class WatchdogServiceTest {
         setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
         setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
         setupClusterRV("42100");
-        setupControllers();
 
         watchdogService.checkWatchHealth();
 
@@ -241,34 +212,11 @@ class WatchdogServiceTest {
         setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
         setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
         setupClusterRV("42100");
-        when(operator.getRegisteredControllers())
-            .thenThrow(new RuntimeException("unexpected"));
+        doThrow(new RuntimeException("stop failed")).when(operator).stop();
 
         watchdogService.checkWatchHealth();
 
         assertFalse(((AtomicBoolean) getField("reconnecting")).get());
-    }
-
-    @Test
-    void reconnect_continuesWithOtherControllers_whenOneControllerFails() throws Exception {
-        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
-        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
-        setupClusterRV("42100");
-
-        RegisteredController rc2 = mock(RegisteredController.class);
-        ControllerConfiguration cfg2 = mock(ControllerConfiguration.class);
-        when(rc2.getConfiguration()).thenReturn(cfg2);
-        when(cfg2.getName()).thenReturn("DBaaSReconciler");
-        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
-        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
-        doThrow(new RuntimeException("failed"))
-            .when(registeredController)
-            .changeNamespaces(ArgumentMatchers.<Set<String>>any());
-        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController, rc2));
-
-        assertDoesNotThrow(() -> watchdogService.checkWatchHealth());
-
-        verify(rc2).changeNamespaces(Set.of("core-1-core"));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -281,16 +229,10 @@ class WatchdogServiceTest {
         when(meshList.getMetadata()).thenReturn(meta);
 
         MixedOperation op = mock(MixedOperation.class);
-        when(op.inNamespace("core-1-core")).thenReturn(op);
+        when(op.inNamespace("test-namespace")).thenReturn(op);
         when(op.list()).thenReturn(meshList);
 
         when(kubernetesClient.resources(Mesh.class)).thenReturn(op);
-    }
-
-    private void setupControllers() {
-        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController));
-        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
-        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
     }
 
     @SuppressWarnings("unchecked")
