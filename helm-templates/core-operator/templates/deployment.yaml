@@ -117,6 +117,14 @@ spec:
                     value: '{{ .Values.LOG_LEVEL }}'
                 -   name: DEPLOYMENT_SESSION_ID
                     value: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+                -   name: CORE_OPERATOR_WATCHDOG_ENABLED
+                    value: "true"
+                -   name: CORE_OPERATOR_WATCHDOG_SILENCE_THRESHOLD
+                    value: "300"
+                -   name: CORE_OPERATOR_WATCHDOG_CONFIRMATION
+                    value: "60"
+                -   name: CORE_OPERATOR_WATCHDOG_PROBE_TIMEOUT
+                    value: "10"
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'

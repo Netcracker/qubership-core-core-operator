@@ -29,19 +29,24 @@ public class WatchdogService {
     @ConfigProperty(name = "cloud.microservice.namespace")
     String namespace;
 
+    @ConfigProperty(name = "core.operator.watchdog.enabled", defaultValue = "false")
+    boolean watchdogEnabled;
+
+    @ConfigProperty(name = "core.operator.watchdog.silence-threshold-seconds", defaultValue = "300")
+    long silenceThresholdSeconds;
+
+    @ConfigProperty(name = "core.operator.watchdog.confirmation-seconds", defaultValue = "60")
+    long confirmationSeconds;
+
+    @ConfigProperty(name = "core.operator.watchdog.probe-timeout-seconds", defaultValue = "10")
+    long probeTimeoutSeconds;
+
     private final AtomicReference<Instant> lastReconcileTime =
         new AtomicReference<>(Instant.now());
 
     private volatile Instant silenceDetectedAt = null;
 
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
-
-    private static final long SILENCE_THRESHOLD_SECONDS = 60;
-
-    private static final long CONFIRMATION_SECONDS = 30;
-
-    // HTTP probe to apiserver timeout
-    private static final long PROBE_TIMEOUT_SECONDS = 10;
 
     public void recordActivity() {
         lastReconcileTime.set(Instant.now());
@@ -50,6 +55,11 @@ public class WatchdogService {
 
     @Scheduled(every = "30s")
     void checkWatchHealth() {
+        if (!watchdogEnabled) {
+            log.debug("[Watchdog] Disabled, skipping check");
+            return;
+        }
+
         if (reconnecting.get()) {
             log.debug("[Watchdog] Reconnect in progress, skipping check");
             return;
@@ -58,31 +68,34 @@ public class WatchdogService {
         long silenceSeconds = Instant.now().getEpochSecond()
             - lastReconcileTime.get().getEpochSecond();
 
-        if (silenceSeconds < SILENCE_THRESHOLD_SECONDS) {
-            log.debug("[Watchdog] OK — last reconcile {}s ago", silenceSeconds);
+        if (silenceSeconds < silenceThresholdSeconds) {
+            log.debug("[Watchdog] OK — last reconcile {}s ago (threshold: {}s)",
+                silenceSeconds, silenceThresholdSeconds);
             return;
         }
 
-        log.warn("[Watchdog] Reconciler silent for {}s — probing apiserver...", silenceSeconds);
+        log.warn("[Watchdog] Reconciler silent for {}s (threshold: {}s) — probing apiserver...",
+            silenceSeconds, silenceThresholdSeconds);
 
         if (!probeApiserver()) {
-            log.warn("[Watchdog] Apiserver unreachable — network issue, not a stuck watch");
+            log.warn("[Watchdog] Apiserver unreachable — network issue, not a stuck watch. " +
+                "Will retry next cycle.");
             return;
         }
 
         if (silenceDetectedAt == null) {
             silenceDetectedAt = Instant.now();
             log.warn("[Watchdog] Apiserver OK but reconciler silent for {}s. " +
-                "Will confirm in {}s before acting.", silenceSeconds, CONFIRMATION_SECONDS);
+                "Will confirm in {}s before acting.", silenceSeconds, confirmationSeconds);
             return;
         }
 
-        long confirmationSeconds = Instant.now().getEpochSecond()
+        long confirmationElapsed = Instant.now().getEpochSecond()
             - silenceDetectedAt.getEpochSecond();
 
-        if (confirmationSeconds < CONFIRMATION_SECONDS) {
-            log.warn("[Watchdog] Confirming stuck watch: {}s/{}s elapsed",
-                confirmationSeconds, CONFIRMATION_SECONDS);
+        if (confirmationElapsed < confirmationSeconds) {
+            log.warn("[Watchdog] Confirming stuck watch: {}/{}s elapsed",
+                confirmationElapsed, confirmationSeconds);
             return;
         }
 
@@ -94,11 +107,11 @@ public class WatchdogService {
     private boolean probeApiserver() {
         try {
             CompletableFuture.runAsync(kubernetesClient::getKubernetesVersion)
-                .get(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                .get(probeTimeoutSeconds, TimeUnit.SECONDS);
             log.debug("[Watchdog] Apiserver probe OK");
             return true;
         } catch (TimeoutException e) {
-            log.warn("[Watchdog] Apiserver probe timeout after {}s", PROBE_TIMEOUT_SECONDS);
+            log.warn("[Watchdog] Apiserver probe timeout after {}s", probeTimeoutSeconds);
             return false;
         } catch (Exception e) {
             log.warn("[Watchdog] Apiserver probe failed: {}", e.getMessage());
@@ -108,12 +121,12 @@ public class WatchdogService {
 
     private void reconnectWatches() {
         if (!reconnecting.compareAndSet(false, true)) {
+            log.debug("[Watchdog] Reconnect already in progress");
             return;
         }
         try {
             var controllers = operator.getRegisteredControllers();
-            log.info("[Watchdog] Refreshing {} controllers via namespace change", 
-                controllers.size());
+            log.info("[Watchdog] Refreshing {} controllers via namespace change", controllers.size());
 
             controllers.forEach(rc -> {
                 String name = rc.getConfiguration().getName();
@@ -126,9 +139,12 @@ public class WatchdogService {
                 }
             });
 
-            lastReconcileTime.set(Instant.now());
+            long cooldownSeconds = silenceThresholdSeconds + confirmationSeconds;
+            lastReconcileTime.set(Instant.now().plusSeconds(cooldownSeconds));
             silenceDetectedAt = null;
-            log.info("[Watchdog] All watches reconnected successfully");
+
+            log.info("[Watchdog] All watches reconnected. Next check in ~{}s (cooldown)",
+                cooldownSeconds);
         } catch (Exception e) {
             log.error("[Watchdog] Reconnect failed: {}", e.getMessage(), e);
         } finally {
