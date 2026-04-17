@@ -120,6 +120,6 @@ class ConfigurationTest {
             io.fabric8.kubernetes.client.Config.empty();
         customizer.customize(config);
         
-        assertEquals(10_000L, config.getWebsocketPingInterval());
+        assertEquals(5_000L, config.getWebsocketPingInterval());
     }
 }
