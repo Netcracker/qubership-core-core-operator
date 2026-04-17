@@ -1,5 +1,6 @@
 package com.netcracker.core.declarative.client.k8s;
 
+import com.netcracker.core.declarative.resources.mesh.Mesh;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.Operator;
 import io.quarkus.scheduler.Scheduled;
@@ -32,25 +33,28 @@ public class WatchdogService {
     @ConfigProperty(name = "core.operator.watchdog.enabled", defaultValue = "false")
     boolean watchdogEnabled;
 
-    @ConfigProperty(name = "core.operator.watchdog.silence-threshold-seconds", defaultValue = "300")
-    long silenceThresholdSeconds;
-
     @ConfigProperty(name = "core.operator.watchdog.confirmation-seconds", defaultValue = "60")
     long confirmationSeconds;
 
     @ConfigProperty(name = "core.operator.watchdog.probe-timeout-seconds", defaultValue = "10")
     long probeTimeoutSeconds;
 
-    private final AtomicReference<Instant> lastReconcileTime =
-        new AtomicReference<>(Instant.now());
+    private final AtomicReference<String> lastReconcilerResourceVersion =
+        new AtomicReference<>(null);
 
-    private volatile Instant silenceDetectedAt = null;
+    private final AtomicReference<String> lastObservedResourceVersion =
+        new AtomicReference<>(null);
+
+    private volatile Instant divergenceDetectedAt = null;
 
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
 
-    public void recordActivity() {
-        lastReconcileTime.set(Instant.now());
-        silenceDetectedAt = null;
+    public void recordActivity(String resourceVersion) {
+        if (resourceVersion != null) {
+            lastReconcilerResourceVersion.set(resourceVersion);
+        }
+        divergenceDetectedAt = null;
+        log.debug("[Watchdog] Activity recorded, resourceVersion={}", resourceVersion);
     }
 
     @Scheduled(every = "30s")
@@ -65,56 +69,73 @@ public class WatchdogService {
             return;
         }
 
-        long silenceSeconds = Instant.now().getEpochSecond()
-            - lastReconcileTime.get().getEpochSecond();
-
-        if (silenceSeconds < silenceThresholdSeconds) {
-            log.debug("[Watchdog] OK — last reconcile {}s ago (threshold: {}s)",
-                silenceSeconds, silenceThresholdSeconds);
+        String clusterRV = fetchClusterResourceVersion();
+        if (clusterRV == null) {
+            log.warn("[Watchdog] Could not fetch resourceVersion — apiserver unreachable or timeout");
             return;
         }
 
-        log.warn("[Watchdog] Reconciler silent for {}s (threshold: {}s) — probing apiserver...",
-            silenceSeconds, silenceThresholdSeconds);
+        lastObservedResourceVersion.set(clusterRV);
+        String reconcilerRV = lastReconcilerResourceVersion.get();
 
-        if (!probeApiserver()) {
-            log.warn("[Watchdog] Apiserver unreachable — network issue, not a stuck watch. " +
-                "Will retry next cycle.");
+        log.debug("[Watchdog] clusterRV={}, reconcilerRV={}", clusterRV, reconcilerRV);
+
+        if (reconcilerRV == null) {
+            log.debug("[Watchdog] No reconciler activity yet, skipping divergence check");
             return;
         }
 
-        if (silenceDetectedAt == null) {
-            silenceDetectedAt = Instant.now();
-            log.warn("[Watchdog] Apiserver OK but reconciler silent for {}s. " +
-                "Will confirm in {}s before acting.", silenceSeconds, confirmationSeconds);
+        if (!isNewerVersion(clusterRV, reconcilerRV)) {
+            log.debug("[Watchdog] No new events in cluster (clusterRV={}, reconcilerRV={})",
+                clusterRV, reconcilerRV);
+            divergenceDetectedAt = null;
             return;
         }
 
-        long confirmationElapsed = Instant.now().getEpochSecond()
-            - silenceDetectedAt.getEpochSecond();
-
-        if (confirmationElapsed < confirmationSeconds) {
-            log.warn("[Watchdog] Confirming stuck watch: {}/{}s elapsed",
-                confirmationElapsed, confirmationSeconds);
+        if (divergenceDetectedAt == null) {
+            divergenceDetectedAt = Instant.now();
+            log.warn("[Watchdog] ResourceVersion divergence detected: " +
+                "clusterRV={} > reconcilerRV={}. Will confirm in {}s.",
+                clusterRV, reconcilerRV, confirmationSeconds);
             return;
         }
 
-        log.error("[Watchdog] Confirmed stuck watch: apiserver OK, " +
-            "reconciler silent {}s total. Forcing watch reconnect.", silenceSeconds);
+        long elapsed = Instant.now().getEpochSecond() - divergenceDetectedAt.getEpochSecond();
+        if (elapsed < confirmationSeconds) {
+            log.warn("[Watchdog] Confirming divergence: clusterRV={} > reconcilerRV={}, " +
+                "{}/{}s elapsed", clusterRV, reconcilerRV, elapsed, confirmationSeconds);
+            return;
+        }
+
+        log.error("[Watchdog] Confirmed stuck watch: clusterRV={} > reconcilerRV={} " +
+            "for {}s. Forcing reconnect.", clusterRV, reconcilerRV, elapsed);
         reconnectWatches();
     }
 
-    private boolean probeApiserver() {
+    private String fetchClusterResourceVersion() {
         try {
-            CompletableFuture.runAsync(kubernetesClient::getKubernetesVersion)
-                .get(probeTimeoutSeconds, TimeUnit.SECONDS);
-            log.debug("[Watchdog] Apiserver probe OK");
-            return true;
+            return CompletableFuture.supplyAsync(() ->
+                kubernetesClient.resources(Mesh.class)
+                    .inNamespace(namespace)
+                    .list()
+                    .getMetadata()
+                    .getResourceVersion()
+            ).get(probeTimeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            log.warn("[Watchdog] Apiserver probe timeout after {}s", probeTimeoutSeconds);
-            return false;
+            log.warn("[Watchdog] ResourceVersion fetch timeout after {}s", probeTimeoutSeconds);
+            return null;
         } catch (Exception e) {
-            log.warn("[Watchdog] Apiserver probe failed: {}", e.getMessage());
+            log.warn("[Watchdog] ResourceVersion fetch failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    boolean isNewerVersion(String clusterRV, String reconcilerRV) {
+        try {
+            return Long.parseLong(clusterRV) > Long.parseLong(reconcilerRV);
+        } catch (NumberFormatException e) {
+            log.warn("[Watchdog] Could not parse resourceVersions as numbers: " +
+                "clusterRV={}, reconcilerRV={}", clusterRV, reconcilerRV);
             return false;
         }
     }
@@ -126,12 +147,14 @@ public class WatchdogService {
         }
         try {
             var controllers = operator.getRegisteredControllers();
-            log.info("[Watchdog] Refreshing {} controllers via namespace change", controllers.size());
+            log.info("[Watchdog] Refreshing {} controllers via namespace change",
+                controllers.size());
 
             controllers.forEach(rc -> {
                 String name = rc.getConfiguration().getName();
                 try {
-                    rc.changeNamespaces(Set.of(namespace));
+                    Set<String> namespaces = Set.of(namespace);
+                    rc.changeNamespaces(namespaces);
                     log.info("[Watchdog] Controller '{}' watch reconnected", name);
                 } catch (Exception e) {
                     log.error("[Watchdog] Failed to reconnect controller '{}': {}",
@@ -139,12 +162,8 @@ public class WatchdogService {
                 }
             });
 
-            long cooldownSeconds = silenceThresholdSeconds + confirmationSeconds;
-            lastReconcileTime.set(Instant.now().plusSeconds(cooldownSeconds));
-            silenceDetectedAt = null;
-
-            log.info("[Watchdog] All watches reconnected. Next check in ~{}s (cooldown)",
-                cooldownSeconds);
+            divergenceDetectedAt = null;
+            log.info("[Watchdog] All watches reconnected successfully");
         } catch (Exception e) {
             log.error("[Watchdog] Reconnect failed: {}", e.getMessage(), e);
         } finally {

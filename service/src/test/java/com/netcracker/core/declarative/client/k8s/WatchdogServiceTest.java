@@ -1,7 +1,10 @@
 package com.netcracker.core.declarative.client.k8s;
 
+import com.netcracker.core.declarative.resources.mesh.Mesh;
+import com.netcracker.core.declarative.resources.mesh.MeshList;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.VersionInfo;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.javaoperatorsdk.operator.Operator;
 import io.javaoperatorsdk.operator.RegisteredController;
 import io.javaoperatorsdk.operator.api.config.ControllerConfiguration;
@@ -42,34 +45,58 @@ class WatchdogServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        setField("namespace", "test-namespace");
+        setField("namespace", "core-1-core");
         setField("watchdogEnabled", true);
-        setField("silenceThresholdSeconds", 300L);
         setField("confirmationSeconds", 60L);
         setField("probeTimeoutSeconds", 10L);
-        setField("silenceDetectedAt", null);
+        setField("divergenceDetectedAt", null);
         setField("reconnecting", new AtomicBoolean(false));
-        setField("lastReconcileTime", new AtomicReference<>(Instant.now()));
+        setField("lastReconcilerResourceVersion", new AtomicReference<>(null));
+        setField("lastObservedResourceVersion", new AtomicReference<>(null));
     }
 
     @Test
-    void recordActivity_updatesLastReconcileTime() throws Exception {
-        Instant oldTime = Instant.now().minusSeconds(200);
-        setField("lastReconcileTime", new AtomicReference<>(oldTime));
-        setField("silenceDetectedAt", Instant.now());
+    void recordActivity_updatesResourceVersion() throws Exception {
+        setField("divergenceDetectedAt", Instant.now());
 
-        watchdogService.recordActivity();
+        watchdogService.recordActivity("42000");
 
-        Instant updated = getAtomicInstant("lastReconcileTime").get();
-        assertTrue(updated.isAfter(oldTime));
-        assertNull(getField("silenceDetectedAt"));
+        assertEquals("42000", getAtomicString("lastReconcilerResourceVersion").get());
+        assertNull(getField("divergenceDetectedAt"));
+    }
+
+    @Test
+    void recordActivity_ignoresNullResourceVersion() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+
+        watchdogService.recordActivity(null);
+
+        assertEquals("42000", getAtomicString("lastReconcilerResourceVersion").get());
+    }
+
+    @Test
+    void isNewerVersion_returnsTrue_whenClusterVersionHigher() {
+        assertTrue(watchdogService.isNewerVersion("42100", "42000"));
+    }
+
+    @Test
+    void isNewerVersion_returnsFalse_whenVersionsEqual() {
+        assertFalse(watchdogService.isNewerVersion("42000", "42000"));
+    }
+
+    @Test
+    void isNewerVersion_returnsFalse_whenClusterVersionLower() {
+        assertFalse(watchdogService.isNewerVersion("41000", "42000"));
+    }
+
+    @Test
+    void isNewerVersion_returnsFalse_whenVersionsNotParseable() {
+        assertFalse(watchdogService.isNewerVersion("abc", "def"));
     }
 
     @Test
     void checkWatchHealth_doesNothing_whenDisabled() throws Exception {
         setField("watchdogEnabled", false);
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(999)));
 
         watchdogService.checkWatchHealth();
 
@@ -77,17 +104,8 @@ class WatchdogServiceTest {
     }
 
     @Test
-    void checkWatchHealth_doesNothing_whenReconcilerActiveRecently() {
-        watchdogService.checkWatchHealth();
-
-        verifyNoInteractions(kubernetesClient, operator);
-    }
-
-    @Test
-    void checkWatchHealth_doesNothing_whenReconnectAlreadyInProgress() throws Exception {
+    void checkWatchHealth_doesNothing_whenReconnectInProgress() throws Exception {
         setField("reconnecting", new AtomicBoolean(true));
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(999)));
 
         watchdogService.checkWatchHealth();
 
@@ -95,12 +113,14 @@ class WatchdogServiceTest {
     }
 
     @Test
-    void checkWatchHealth_doesNotReconnect_whenApiserverTimesOut() throws Exception {
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(400)));
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void checkWatchHealth_doesNothing_whenApiserverUnreachable() throws Exception {
         setField("probeTimeoutSeconds", 1L);
-        when(kubernetesClient.getKubernetesVersion())
-            .thenAnswer(inv -> { Thread.sleep(3_000); return null; });
+
+        MixedOperation op = mock(MixedOperation.class);
+        when(op.inNamespace("core-1-core")).thenReturn(op);
+        when(op.list()).thenAnswer(inv -> { Thread.sleep(3_000); return null; });
+        when(kubernetesClient.resources(Mesh.class)).thenReturn(op);
 
         watchdogService.checkWatchHealth();
 
@@ -108,11 +128,8 @@ class WatchdogServiceTest {
     }
 
     @Test
-    void checkWatchHealth_doesNotReconnect_whenApiserverThrowsException() throws Exception {
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(400)));
-        when(kubernetesClient.getKubernetesVersion())
-            .thenThrow(new RuntimeException("connection refused"));
+    void checkWatchHealth_doesNothing_whenNoReconcilerActivityYet() throws Exception {
+        setupClusterRV("42000");
 
         watchdogService.checkWatchHealth();
 
@@ -120,44 +137,78 @@ class WatchdogServiceTest {
     }
 
     @Test
-    void checkWatchHealth_setsDetectionTime_onFirstSilenceWithApiserverOk() throws Exception {
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(400)));
-        when(kubernetesClient.getKubernetesVersion()).thenReturn(mock(VersionInfo.class));
-
-        watchdogService.checkWatchHealth();
-
-        assertNotNull(getField("silenceDetectedAt"));
-        verify(operator, never()).getRegisteredControllers();
-    }
-
-    @Test
-    void checkWatchHealth_doesNotReconnect_beforeConfirmationPeriodElapsed() throws Exception {
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(400)));
-        setField("silenceDetectedAt", Instant.now().minusSeconds(10));
-        when(kubernetesClient.getKubernetesVersion()).thenReturn(mock(VersionInfo.class));
+    void checkWatchHealth_doesNothing_whenClusterVersionNotChanged() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setupClusterRV("42000");
 
         watchdogService.checkWatchHealth();
 
         verify(operator, never()).getRegisteredControllers();
+        assertNull(getField("divergenceDetectedAt"));
     }
 
     @Test
-    void checkWatchHealth_reconnects_afterConfirmationPeriodElapsed() throws Exception {
-        setupSilentState();
-        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController));
-        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
-        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
+    void checkWatchHealth_doesNothing_whenClusterVersionLower() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setupClusterRV("41000");
+        watchdogService.checkWatchHealth();
+
+        verify(operator, never()).getRegisteredControllers();
+    }
+
+    @Test
+    void checkWatchHealth_setsDivergenceTime_onFirstDetection() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setupClusterRV("42100");
 
         watchdogService.checkWatchHealth();
 
-        verify(registeredController).changeNamespaces(Set.<String>of("test-namespace"));
+        assertNotNull(getField("divergenceDetectedAt"));
+        verify(operator, never()).getRegisteredControllers();
+    }
+
+    @Test
+    void checkWatchHealth_doesNotReconnect_beforeConfirmationElapsed() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(10));
+        setupClusterRV("42100");
+
+        watchdogService.checkWatchHealth();
+
+        verify(operator, never()).getRegisteredControllers();
+    }
+
+    @Test
+    void checkWatchHealth_reconnects_afterConfirmationElapsed() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
+        setupClusterRV("42100");
+        setupControllers();
+
+        watchdogService.checkWatchHealth();
+
+        Set<String> expectedNs = Set.of("core-1-core");
+        verify(registeredController).changeNamespaces(expectedNs);
+    }
+
+    @Test
+    void checkWatchHealth_resetsDivergence_whenVersionCatchesUp() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42100"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(30));
+        setupClusterRV("42100"); 
+
+        watchdogService.checkWatchHealth();
+
+        assertNull(getField("divergenceDetectedAt"));
+        verify(operator, never()).getRegisteredControllers();
     }
 
     @Test
     void reconnect_reconnectsAllControllers() throws Exception {
-        setupSilentState();
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
+        setupClusterRV("42100");
+
         RegisteredController rc2 = mock(RegisteredController.class);
         ControllerConfiguration cfg2 = mock(ControllerConfiguration.class);
         when(rc2.getConfiguration()).thenReturn(cfg2);
@@ -168,51 +219,42 @@ class WatchdogServiceTest {
 
         watchdogService.checkWatchHealth();
 
-        verify(registeredController).changeNamespaces(Set.<String>of("test-namespace"));
-        verify(rc2).changeNamespaces(Set.<String>of("test-namespace"));
+        Set<String> expectedNs = Set.of("core-1-core");
+        verify(registeredController).changeNamespaces(expectedNs);
+        verify(rc2).changeNamespaces(expectedNs);
     }
 
     @Test
-    void reconnect_resetsSilenceDetectedAt_afterSuccess() throws Exception {
-        setupSilentState();
-        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController));
-        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
-        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
+    void reconnect_resetsDivergenceDetectedAt_afterSuccess() throws Exception {
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
+        setupClusterRV("42100");
+        setupControllers();
 
         watchdogService.checkWatchHealth();
 
-        assertNull(getField("silenceDetectedAt"));
-    }
-
-    @Test
-    void reconnect_appliesCooldown_afterSuccess() throws Exception {
-        setupSilentState();
-        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController));
-        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
-        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
-
-        watchdogService.checkWatchHealth();
-
-        Instant lastTime = getAtomicInstant("lastReconcileTime").get();
-        assertTrue(lastTime.isAfter(Instant.now()),
-            "lastReconcileTime должен быть в будущем после cooldown");
+        assertNull(getField("divergenceDetectedAt"));
     }
 
     @Test
     void reconnect_resetsReconnectingFlag_evenOnException() throws Exception {
-        setupSilentState();
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
+        setupClusterRV("42100");
         when(operator.getRegisteredControllers())
-            .thenThrow(new RuntimeException("unexpected error"));
+            .thenThrow(new RuntimeException("unexpected"));
 
         watchdogService.checkWatchHealth();
 
-        assertFalse(((AtomicBoolean) getField("reconnecting")).get(),
-            "reconnecting должен быть false даже после исключения");
+        assertFalse(((AtomicBoolean) getField("reconnecting")).get());
     }
 
     @Test
     void reconnect_continuesWithOtherControllers_whenOneControllerFails() throws Exception {
-        setupSilentState();
+        setField("lastReconcilerResourceVersion", new AtomicReference<>("42000"));
+        setField("divergenceDetectedAt", Instant.now().minusSeconds(90));
+        setupClusterRV("42100");
+
         RegisteredController rc2 = mock(RegisteredController.class);
         ControllerConfiguration cfg2 = mock(ControllerConfiguration.class);
         when(rc2.getConfiguration()).thenReturn(cfg2);
@@ -220,19 +262,35 @@ class WatchdogServiceTest {
         when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
         when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
         doThrow(new RuntimeException("failed"))
-            .when(registeredController).changeNamespaces(ArgumentMatchers.<Set<String>>any());
+            .when(registeredController)
+            .changeNamespaces(ArgumentMatchers.<Set<String>>any());
         when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController, rc2));
 
         assertDoesNotThrow(() -> watchdogService.checkWatchHealth());
 
-        verify(rc2).changeNamespaces(Set.<String>of("test-namespace"));
+        verify(rc2).changeNamespaces(Set.of("core-1-core"));
     }
 
-    private void setupSilentState() throws Exception {
-        setField("lastReconcileTime",
-            new AtomicReference<>(Instant.now().minusSeconds(400)));
-        setField("silenceDetectedAt", Instant.now().minusSeconds(90));
-        when(kubernetesClient.getKubernetesVersion()).thenReturn(mock(VersionInfo.class));
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setupClusterRV(String rv) {
+        io.fabric8.kubernetes.api.model.ListMeta meta =
+            new io.fabric8.kubernetes.api.model.ListMeta();
+        meta.setResourceVersion(rv);
+
+        MeshList meshList = mock(MeshList.class);
+        when(meshList.getMetadata()).thenReturn(meta);
+
+        MixedOperation op = mock(MixedOperation.class);
+        when(op.inNamespace("core-1-core")).thenReturn(op);
+        when(op.list()).thenReturn(meshList);
+
+        when(kubernetesClient.resources(Mesh.class)).thenReturn(op);
+    }
+
+    private void setupControllers() {
+        when(operator.getRegisteredControllers()).thenReturn(Set.of(registeredController));
+        when(registeredController.getConfiguration()).thenReturn(controllerConfiguration);
+        when(controllerConfiguration.getName()).thenReturn("MeshReconciler");
     }
 
     @SuppressWarnings("unchecked")
@@ -242,11 +300,10 @@ class WatchdogServiceTest {
         return (T) f.get(watchdogService);
     }
 
-    @SuppressWarnings("unchecked")
-    private AtomicReference<Instant> getAtomicInstant(String name) throws Exception {
+    private AtomicReference<String> getAtomicString(String name) throws Exception {
         Field f = findField(name);
         f.setAccessible(true);
-        return (AtomicReference<Instant>) f.get(watchdogService);
+        return (AtomicReference<String>) f.get(watchdogService);
     }
 
     private void setField(String name, Object value) throws Exception {

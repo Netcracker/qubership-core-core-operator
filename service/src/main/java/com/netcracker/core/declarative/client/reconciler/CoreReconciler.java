@@ -75,7 +75,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
-        watchdogService.recordActivity(); 
+        watchdogService.recordActivity(resource.getMetadata().getResourceVersion());
         setupLogFormat(resource.getStatus(), resource);
         //if CR validation fails there's no need for further processing
         if (!isResourceValid(resource)) {
