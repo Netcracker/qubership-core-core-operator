@@ -27,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.netcracker.core.declarative.client.reconciler.BaseCompositeReconciler.DBAAS_NAME;
-import static com.netcracker.core.declarative.client.reconciler.BaseCompositeReconciler.MAAS_NAME;
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.MAAS_NAME;
 
@@ -162,7 +160,7 @@ public class Configuration {
     @ApplicationScoped
     public KubernetesConfigCustomizer kubernetesConfigCustomizer() {
         return (Config config) -> {
-            config.setWebsocketPingInterval(10_000L);
+            config.setWebsocketPingInterval(5_000L);
             log.debug("KubernetesClient configured: websocketPingInterval=10000ms");
             config.setRequestTimeout(30_000);
             config.setConnectionTimeout(10_000);
