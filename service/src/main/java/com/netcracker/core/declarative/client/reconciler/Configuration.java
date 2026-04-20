@@ -156,14 +156,20 @@ public class Configuration {
         return new ObjectMapper();
     }
 
+    @ConfigProperty(name = "core.operator.websocket.ping-interval-seconds", defaultValue = "5")
+    long websocketPingIntervalSeconds;    
+
     @Produces
     @ApplicationScoped
     public KubernetesConfigCustomizer kubernetesConfigCustomizer() {
-        return (Config config) -> {
-            config.setWebsocketPingInterval(5_000L);
-            log.debug("KubernetesClient configured: websocketPingInterval=10000ms");
-            config.setRequestTimeout(30_000);
-            config.setConnectionTimeout(10_000);
+        long pingIntervalMs = websocketPingIntervalSeconds * 1000L;
+        return new KubernetesConfigCustomizer() {
+            @Override
+            public void customize(io.fabric8.kubernetes.client.Config config) {
+                config.setWebsocketPingInterval(pingIntervalMs);
+                log.info("KubernetesClient configured: websocketPingInterval={}s",
+                    pingIntervalMs / 1000);
+            }
         };
     }
 

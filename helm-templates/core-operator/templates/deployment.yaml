@@ -117,11 +117,7 @@ spec:
                     value: '{{ .Values.LOG_LEVEL }}'
                 -   name: DEPLOYMENT_SESSION_ID
                     value: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-                -   name: CORE_OPERATOR_WATCHDOG_ENABLED
-                    value: "true"
-                -   name: CORE_OPERATOR_WATCHDOG_CONFIRMATION
-                    value: "60"
-                -   name: CORE_OPERATOR_WATCHDOG_PROBE_TIMEOUT
+                -   name: WEBSOCKET_PING_INTERVAL_SECONDS
                     value: "10"
                 resources:
                     requests:

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
 import com.netcracker.core.declarative.client.cache.RetryResourceCache;
 import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
-import com.netcracker.core.declarative.client.k8s.WatchdogService;
 import com.netcracker.core.declarative.client.rest.*;
 import com.netcracker.core.declarative.client.rest.Condition;
 import com.netcracker.core.declarative.resources.base.CoreCondition;
@@ -53,9 +52,6 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     @Inject
     protected ObjectMapper objectMapper;
 
-    @Inject
-    WatchdogService watchdogService;
-
     @ConfigProperty(name = "DEPLOYMENT_SESSION_ID")
     protected String deploymentSessionId;
 
@@ -75,7 +71,6 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
-        watchdogService.recordActivity(resource.getMetadata().getResourceVersion());
         setupLogFormat(resource.getStatus(), resource);
         //if CR validation fails there's no need for further processing
         if (!isResourceValid(resource)) {
