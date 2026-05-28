@@ -1,10 +1,11 @@
 package com.netcracker.core.declarative.service;
 
+import com.netcracker.cloud.consul.provider.common.TokenStorage;
+import com.netcracker.core.declarative.model.CompositeMembersList;
 import io.vertx.ext.consul.*;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import com.netcracker.cloud.consul.provider.common.TokenStorage;
 
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -86,18 +87,21 @@ public class CompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     }
 
     @Override
-    public Set<String> getCompositeMembers(String compositeId) throws ExecutionException, InterruptedException {
+    public CompositeMembersList getCompositeMembers(String compositeId) throws ExecutionException, InterruptedException {
         String compositeDefinitionRoot = COMPOSITE_STRUCTURE_BASE_PATH_TEMPLATE.formatted(compositeId);
         log.info("Get updated composite structure from consul by path: {}", compositeDefinitionRoot);
         ConsulClient consulClient = consulClientFactory.create(consulTokenStorage.get());
         try {
-            return consulClient.getKeys(compositeDefinitionRoot)
+            KeyValueList keyValueList = consulClient.getValues(compositeDefinitionRoot)
                     .toCompletionStage()
                     .toCompletableFuture()
-                    .get()
+                    .get();
+            Set<String> members = keyValueList
+                    .getList()
                     .stream()
-                    .map(s -> Paths.get(compositeDefinitionRoot).relativize(Paths.get(s)).getParent().toString())
+                    .map(s -> Paths.get(compositeDefinitionRoot).relativize(Paths.get(s.getKey())).getParent().toString())
                     .collect(Collectors.toSet());
+            return new CompositeMembersList(keyValueList.getIndex(), members);
         } finally {
             consulClient.close();
         }

@@ -1,8 +1,8 @@
 package com.netcracker.core.declarative.service;
 
 import com.netcracker.core.declarative.exception.NoopConsulException;
+import com.netcracker.core.declarative.model.CompositeMembersList;
 
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class NoopCompositeConsulUpdaterImpl implements CompositeConsulUpdater {
@@ -18,7 +18,7 @@ public class NoopCompositeConsulUpdaterImpl implements CompositeConsulUpdater {
     }
 
     @Override
-    public Set<String> getCompositeMembers(String compositeId) {
+    public CompositeMembersList getCompositeMembers(String compositeId) {
         throw new NoopConsulException();
     }
 

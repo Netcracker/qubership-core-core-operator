@@ -1,6 +1,7 @@
 package com.netcracker.core.declarative.service;
 
 import com.netcracker.core.declarative.client.rest.CompositeClient;
+import com.netcracker.core.declarative.model.CompositeMembersList;
 import io.vertx.core.Future;
 import io.vertx.ext.consul.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -241,19 +242,21 @@ class CompositeConsulUpdaterImplTest {
     void getCompositeMembers() throws ExecutionException, InterruptedException {
         String basePath = "composite/first/structure";
 
-        when(consulClient.getKeys(basePath))
-                .thenReturn(Future.succeededFuture(List.of(
-                        basePath + "/first" + "/compositeRole",
-                        basePath + "/second" + "/compositeRole",
-                        basePath + "/third" + "/compositeRole"
-                )));
+        when(consulClient.getValues(basePath))
+                .thenReturn(Future.succeededFuture(new KeyValueList()
+                        .setIndex(123L)
+                        .setList(List.of(
+                                new KeyValue().setKey(basePath + "/first" + "/compositeRole").setValue("val1"),
+                                new KeyValue().setKey(basePath + "/second" + "/compositeRole").setValue("val2"),
+                                new KeyValue().setKey(basePath + "/third" + "/compositeRole").setValue("val3")
+                        ))));
 
         CompositeClient compositeClient = mock(CompositeClient.class);
         when(compositeClient.structures(any())).thenReturn(jakarta.ws.rs.core.Response.noContent().build());
 
         CompositeConsulUpdater compositeConsulUpdater = new CompositeConsulUpdaterImpl("first", consulClientFactory, mock(TokenStorage.class));
-        Set<String> compositeMembers = compositeConsulUpdater.getCompositeMembers("first");
-        assertEquals(Set.of("first", "second", "third"), compositeMembers);
+        CompositeMembersList compositeMembersList = compositeConsulUpdater.getCompositeMembers("first");
+        assertEquals(Set.of("first", "second", "third"), compositeMembersList.members());
     }
 
     private void verifyConsulValueSetTxn(List<TxnOperation> ops, List<String> kvs) {

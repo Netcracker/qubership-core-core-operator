@@ -1,6 +1,7 @@
 package com.netcracker.core.declarative.service;
 
-import java.util.Set;
+import com.netcracker.core.declarative.model.CompositeMembersList;
+
 import java.util.concurrent.ExecutionException;
 
 public interface CompositeConsulUpdater {
@@ -8,5 +9,5 @@ public interface CompositeConsulUpdater {
 
     void updateCompositeStructureInConsul(String namespace, CompositeSpec compositeSpec) throws ExecutionException, InterruptedException;
 
-    Set<String> getCompositeMembers(String compositeId) throws ExecutionException, InterruptedException;
+    CompositeMembersList getCompositeMembers(String compositeId) throws ExecutionException, InterruptedException;
 }
