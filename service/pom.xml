@@ -20,7 +20,7 @@
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
         <error-handling.version>4.0.6</error-handling.version>
-        <quarkus-extensions.version>9.1.4</quarkus-extensions.version>
+        <quarkus-extensions.version>9.1.5</quarkus-extensions.version>
     </properties>
 
     <dependencyManagement>
