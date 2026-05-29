@@ -117,6 +117,8 @@ spec:
                     value: '{{ .Values.LOG_LEVEL }}'
                 -   name: DEPLOYMENT_SESSION_ID
                     value: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+                -   name: WEBSOCKET_PING_INTERVAL_SECONDS
+                    value: "10"
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'
