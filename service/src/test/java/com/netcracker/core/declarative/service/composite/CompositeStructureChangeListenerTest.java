@@ -1,14 +1,10 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
 import com.netcracker.core.declarative.resources.composite.Composite;
-import com.netcracker.core.declarative.service.CloudProviderDetector;
 import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
-import com.netcracker.core.declarative.service.composite.model.CloudProvider;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,43 +13,37 @@ import org.mockito.ArgumentCaptor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
-import static com.netcracker.core.declarative.service.composite.CompositeStructureWatcher.CONFIG_MAP_NAME;
-import static com.netcracker.core.declarative.service.composite.model.CloudProvider.AKS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class CompositeStructureChangeListenerTest {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private ConfigMapWriter configMapWriter;
+    private TopologyConfigMapPublisher topologyConfigMapPublisher;
     private CompositeCRHolder compositeCRHolder;
+    private Composite composite;
     private CompositeStructureChangeListener listener;
 
     @BeforeEach
     void setUp() {
-        configMapWriter = mock(ConfigMapWriter.class);
-        when(configMapWriter.requestUpdate(any(), any(), any()))
-                .thenReturn(CompletableFuture.completedFuture(null));
+        topologyConfigMapPublisher = mock(TopologyConfigMapPublisher.class);
 
+        composite = mock(Composite.class);
         compositeCRHolder = mock(CompositeCRHolder.class);
-        // By default, return a mock Composite CR (non-null)
-        when(compositeCRHolder.get()).thenReturn(mock(Composite.class));
+        when(compositeCRHolder.get()).thenReturn(composite);
 
-        CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer(Optional.of(AKS.name()), mock(CloudProviderDetector.class));
+        // real transformer so produced structures are realistic
+        CompositeStructureTransformer compositeStructureTransformer = new CompositeStructureTransformer();
         listener = new CompositeStructureChangeListener(
-                objectMapper,
-                configMapWriter,
                 compositeStructureTransformer,
-                compositeCRHolder
+                compositeCRHolder,
+                topologyConfigMapPublisher
         );
     }
 
     @Test
-    void handleShouldSerializeSnapshotAndUpdateConfigMap() throws JsonProcessingException {
+    void publishesTransformedStructure() {
         CompositeStructureUpdateEvent event = createEvent(Map.of(
                 "composite/sample/structure/ns-a/compositeRole", "baseline",
                 "composite/sample/structure/ns-b/compositeRole", "satellite"
@@ -61,69 +51,49 @@ class CompositeStructureChangeListenerTest {
 
         listener.onStructureUpdated(event);
 
-        Map<String, String> capturedData = captureConfigMapData();
-        String json = capturedData.get("data");
-        assertNotNull(json);
-
-        JsonNode root = objectMapper.readTree(json);
-        assertEquals(AKS, CloudProvider.valueOf(root.get("cloudProvider").asText()));
-
-        JsonNode composite = root.get("composite");
-        assertNotNull(composite);
-        assertEquals("ns-a", composite.get("baseline").get("origin").asText());
-        assertEquals(1, composite.get("satellites").size());
-        assertEquals("ns-b", composite.get("satellites").get(0).get("origin").asText());
+        CompositeStructure structure = capturePublishedStructure();
+        assertEquals("ns-a", structure.baseline().origin());
+        assertEquals(1, structure.satellites().size());
+        assertEquals("ns-b", structure.satellites().get(0).origin());
     }
 
     @Test
-    void handleShouldNotThrowOnTransformationError() {
+    void doesNotPublishOnTransformationError() {
         CompositeStructureUpdateEvent event = createEvent(Map.of(
                 "composite/sample/structure/ns-a/compositeRole", "INVALID_ROLE"
         ));
 
-        // Should not throw exception - errors are caught and logged
         assertDoesNotThrow(() -> listener.onStructureUpdated(event));
 
-        // ConfigMapWriter should not be called when transformation fails
-        verifyNoInteractions(configMapWriter);
+        verifyNoInteractions(topologyConfigMapPublisher);
     }
 
     @Test
-    void handleShouldProcessEmptyValuesList() throws JsonProcessingException {
+    void publishesEmptyStructureForEmptyValues() {
         CompositeStructureUpdateEvent event = new CompositeStructureUpdateEvent(Collections.emptyList(), 0);
 
         listener.onStructureUpdated(event);
 
-        Map<String, String> capturedData = captureConfigMapData();
-        String json = capturedData.get("data");
-        assertNotNull(json);
-
-        JsonNode root = objectMapper.readTree(json);
-        assertEquals(AKS, CloudProvider.valueOf(root.get("cloudProvider").asText()));
-        // composite should be empty/null when no values
-        assertFalse(root.has("composite") && root.get("composite").has("baseline"));
+        CompositeStructure structure = capturePublishedStructure();
+        assertNull(structure.baseline());
     }
 
     @Test
-    void handleShouldSkipUpdateWhenCompositeIsNull() {
-        // Setup: compositeCRHolder returns null (CR not available yet)
+    void skipsPublishWhenCompositeIsNull() {
         when(compositeCRHolder.get()).thenReturn(null);
 
         CompositeStructureUpdateEvent event = createEvent(Map.of(
                 "composite/sample/structure/ns-a/compositeRole", "baseline"
         ));
 
-        // Should not throw exception
         assertDoesNotThrow(() -> listener.onStructureUpdated(event));
 
-        // ConfigMapWriter should not be called when CR is null
-        verifyNoInteractions(configMapWriter);
+        verifyNoInteractions(topologyConfigMapPublisher);
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, String> captureConfigMapData() {
-        ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(configMapWriter).requestUpdate(eq(CONFIG_MAP_NAME), captor.capture(), any());
+    private CompositeStructure capturePublishedStructure() {
+        ArgumentCaptor<CompositeStructure> captor = ArgumentCaptor.forClass(CompositeStructure.class);
+        verify(topologyConfigMapPublisher).publish(captor.capture(), eq(composite));
         return captor.getValue();
     }
 
@@ -138,5 +108,4 @@ class CompositeStructureChangeListenerTest {
                 .toList();
         return new CompositeStructureUpdateEvent(values, 0);
     }
-
 }

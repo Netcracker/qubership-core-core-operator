@@ -2,6 +2,9 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
+import com.netcracker.core.declarative.service.composite.TopologyConfigMapPublisher;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
+import com.netcracker.core.declarative.service.composite.model.transformation.CompositeSpecTransformer;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import lombok.extern.slf4j.Slf4j;
@@ -36,19 +39,25 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
     private List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers;
     private CompositeStructureWatcher compositeStructureWatcher;
     private CompositeCRHolder compositeCRHolder;
+    private TopologyConfigMapPublisher topologyConfigMapPublisher;
+    private CompositeSpecTransformer compositeSpecTransformer;
 
     public BaseCompositeReconciler(
             KubernetesClient client,
             CompositeConsulUpdater compositeConsulUpdater,
             List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers,
             CompositeStructureWatcher compositeStructureWatcher,
-            CompositeCRHolder compositeCRHolder
+            CompositeCRHolder compositeCRHolder,
+            TopologyConfigMapPublisher topologyConfigMapPublisher,
+            CompositeSpecTransformer compositeSpecTransformer
     ) {
         super(client);
         this.compositeConsulUpdater = compositeConsulUpdater;
         this.compositeStructureUpdateNotifiers = compositeStructureUpdateNotifiers;
         this.compositeStructureWatcher = compositeStructureWatcher;
         this.compositeCRHolder = compositeCRHolder;
+        this.topologyConfigMapPublisher = topologyConfigMapPublisher;
+        this.compositeSpecTransformer = compositeSpecTransformer;
     }
 
     protected BaseCompositeReconciler() {
@@ -117,6 +126,8 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             CompositeSpec compositeSpec = fromResource(composite);
             log.info("CompositeStructure updated -> start CompositeStructure watcher for compositeId = {}", compositeSpec.getCompositeId());
             compositeCRHolder.set(composite);
+            CompositeStructure structure = compositeSpecTransformer.transform(compositeSpec);
+            topologyConfigMapPublisher.publish(structure, composite);
             compositeStructureWatcher.start(compositeSpec.getCompositeId());
         }
         catch (Exception e) {
