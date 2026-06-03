@@ -2,14 +2,12 @@ package com.netcracker.core.declarative.service.composite.model.transformation;
 
 import com.netcracker.core.declarative.service.CompositeSpec;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
-import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
 
 /**
  * Converts a {@link CompositeSpec} (the Composite CR spec) into a {@link CompositeStructure}.
  */
-@ApplicationScoped
 public class CompositeSpecTransformer {
 
     public CompositeStructure transform(CompositeSpec spec) {

@@ -11,7 +11,6 @@ import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 import com.netcracker.core.declarative.service.NoopCompositeConsulUpdaterImpl;
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
 import com.netcracker.core.declarative.service.composite.TopologyConfigMapPublisher;
-import com.netcracker.core.declarative.service.composite.model.transformation.CompositeSpecTransformer;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.runtime.RawExtension;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -51,8 +50,7 @@ class CompositeReconcilerTest {
                 ),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -89,8 +87,7 @@ class CompositeReconcilerTest {
                 ),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -121,8 +118,7 @@ class CompositeReconcilerTest {
                 List.of(),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -150,8 +146,7 @@ class CompositeReconcilerTest {
                 List.of(),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -183,8 +178,7 @@ class CompositeReconcilerTest {
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -224,8 +218,7 @@ class CompositeReconcilerTest {
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -268,8 +261,7 @@ class CompositeReconcilerTest {
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
                 new CompositeCRHolder(),
-                mockPublisher(),
-                mock(CompositeSpecTransformer.class)
+                mockPublisher()
         );
 
         Composite composite = new Composite();

@@ -36,12 +36,12 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
     public static final String COMPOSITE_STRUCTURE_UPDATED_STEP_NAME = "CompositeStructureUpdated";
     public static final Function<String, String> XAAS_UPDATED_STEP_NAME = (String id) -> "%sUpdated".formatted(StringUtils.capitalize(id));
 
+    private CompositeSpecTransformer compositeSpecTransformer;
     private CompositeConsulUpdater compositeConsulUpdater;
     private List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers;
     private CompositeStructureWatcher compositeStructureWatcher;
     private CompositeCRHolder compositeCRHolder;
     private TopologyConfigMapPublisher topologyConfigMapPublisher;
-    private CompositeSpecTransformer compositeSpecTransformer;
 
     public BaseCompositeReconciler(
             KubernetesClient client,
@@ -49,16 +49,15 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers,
             CompositeStructureWatcher compositeStructureWatcher,
             CompositeCRHolder compositeCRHolder,
-            TopologyConfigMapPublisher topologyConfigMapPublisher,
-            CompositeSpecTransformer compositeSpecTransformer
+            TopologyConfigMapPublisher topologyConfigMapPublisher
     ) {
         super(client);
+        this.compositeSpecTransformer = new CompositeSpecTransformer();
         this.compositeConsulUpdater = compositeConsulUpdater;
         this.compositeStructureUpdateNotifiers = compositeStructureUpdateNotifiers;
         this.compositeStructureWatcher = compositeStructureWatcher;
         this.compositeCRHolder = compositeCRHolder;
         this.topologyConfigMapPublisher = topologyConfigMapPublisher;
-        this.compositeSpecTransformer = compositeSpecTransformer;
     }
 
     protected BaseCompositeReconciler() {

@@ -2,7 +2,6 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
 import com.netcracker.core.declarative.service.composite.TopologyConfigMapPublisher;
-import com.netcracker.core.declarative.service.composite.model.transformation.CompositeSpecTransformer;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.config.informer.Informer;
 import io.javaoperatorsdk.operator.api.reconciler.Constants;
@@ -28,9 +27,8 @@ public class CompositeReconciler extends BaseCompositeReconciler<Composite> {
             List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers,
             CompositeStructureWatcher compositeStructureWatcher,
             CompositeCRHolder compositeCRHolder,
-            TopologyConfigMapPublisher topologyConfigMapPublisher,
-            CompositeSpecTransformer compositeSpecTransformer
+            TopologyConfigMapPublisher topologyConfigMapPublisher
     ) {
-        super(client, compositeConsulUpdater, compositeStructureUpdateNotifiers, compositeStructureWatcher, compositeCRHolder, topologyConfigMapPublisher, compositeSpecTransformer);
+        super(client, compositeConsulUpdater, compositeStructureUpdateNotifiers, compositeStructureWatcher, compositeCRHolder, topologyConfigMapPublisher);
     }
 }
