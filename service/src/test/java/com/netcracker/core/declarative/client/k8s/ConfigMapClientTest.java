@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -103,6 +104,55 @@ class ConfigMapClientTest {
     }
 
     private record ApplyResult(AtomicReference<ConfigMap> appliedConfigMapRef, AtomicBoolean wasApplied) {}
+
+    @Test
+    void shouldIncludeResourceVersionFromExistingConfigMap() {
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMap existingConfigMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withResourceVersion("42")
+                .endMetadata()
+                .build();
+
+        ApplyResult applyResult = prepareConfigMapMocks(client, existingConfigMap);
+
+        new ConfigMapClient(client).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, Map.of("k", "v"));
+
+        ConfigMap appliedConfigMap = applyResult.appliedConfigMapRef().get();
+        assertNotNull(appliedConfigMap);
+        assertEquals("42", appliedConfigMap.getMetadata().getResourceVersion());
+    }
+
+    @Test
+    void shouldNotSetResourceVersionWhenConfigMapDoesNotExist() {
+        KubernetesClient client = mock(KubernetesClient.class);
+
+        ApplyResult applyResult = prepareConfigMapMocks(client, null);
+
+        new ConfigMapClient(client).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, Map.of("k", "v"));
+
+        ConfigMap appliedConfigMap = applyResult.appliedConfigMapRef().get();
+        assertNotNull(appliedConfigMap);
+        assertNull(appliedConfigMap.getMetadata().getResourceVersion());
+    }
+
+    @Test
+    void shouldSkipUpdateWhenLabelChangedAfterConflict() {
+        // Simulates a retry after a 409: on re-read the ConfigMap is now owned by another operator.
+        KubernetesClient client = mock(KubernetesClient.class);
+        ConfigMap hijackedConfigMap = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withLabels(Map.of("app.kubernetes.io/managed-by", "topology-operator"))
+                .withResourceVersion("99")
+                .endMetadata()
+                .build();
+
+        ApplyResult applyResult = prepareConfigMapMocks(client, hijackedConfigMap);
+
+        new ConfigMapClient(client).createOrUpdate(CONFIG_MAP_NAME, NAMESPACE, Map.of("k", "v"));
+
+        assertFalse(applyResult.wasApplied().get());
+    }
 
     @Test
     void shouldBeManagedByCoreOperator_returnsTrue_whenConfigMapIsNull() {
