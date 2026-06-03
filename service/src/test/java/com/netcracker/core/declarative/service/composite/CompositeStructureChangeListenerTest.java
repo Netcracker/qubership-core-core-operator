@@ -13,8 +13,10 @@ import org.mockito.ArgumentCaptor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -28,6 +30,7 @@ class CompositeStructureChangeListenerTest {
     @BeforeEach
     void setUp() {
         topologyConfigMapPublisher = mock(TopologyConfigMapPublisher.class);
+        when(topologyConfigMapPublisher.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         composite = mock(Composite.class);
         compositeCRHolder = mock(CompositeCRHolder.class);

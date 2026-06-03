@@ -23,6 +23,7 @@ import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.netcracker.core.declarative.client.constants.Constants.VALIDATED_STEP_NAME;
@@ -83,8 +84,9 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
         if (!isCompleted(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME)) {
             try {
                 CompositeStructure structure = compositeSpecTransformer.transform(compositeSpec);
-                topologyConfigMapPublisher.publish(structure, composite);
+                CompletableFuture<Void> publishFuture = topologyConfigMapPublisher.publish(structure, composite).toCompletableFuture();
                 compositeConsulUpdater.updateCompositeStructureInConsul(compositeSpec);
+                publishFuture.join();
                 completeStep(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME);
             } catch (NoopConsulException nce) {
                 log.warn("Consul integration is disabled; skip composite CR processing");

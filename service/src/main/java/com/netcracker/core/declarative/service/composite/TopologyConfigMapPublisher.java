@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 
 import static com.netcracker.core.declarative.service.composite.TopologyConfigMap.DATA_KEY;
 import static com.netcracker.core.declarative.service.composite.TopologyConfigMap.NAME;
@@ -43,24 +44,23 @@ public class TopologyConfigMapPublisher {
      *
      * @param structure the composite structure (may be {@code null} when there is no topology)
      * @param owner     the Composite CR set as owner of the ConfigMap
+     * @return a future that completes when the ConfigMap is written, or fails after all retries
+     * @throws RuntimeException if the payload cannot be serialized
      */
-    public void publish(CompositeStructure structure, Composite owner) {
+    public CompletionStage<Void> publish(CompositeStructure structure, Composite owner) {
         CompositeStructureConfigMapPayload payload =
                 new CompositeStructureConfigMapPayload(cloudProviderResolver.get().getValue(), structure);
         log.info("Publishing '{}' ConfigMap: {}", NAME, payload);
 
+        String json;
         try {
-            String json = objectMapper.writeValueAsString(payload);
-            Map<String, String> data = Map.of(DATA_KEY, json);
-
-            configMapWriter.requestUpdate(NAME, data, owner)
-                    .thenRun(() -> log.info("Successfully published ConfigMap '{}'", NAME))
-                    .exceptionally(ex -> {
-                        log.error("Failed to publish ConfigMap '{}' after all retries", NAME, ex);
-                        return null;
-                    });
+            json = objectMapper.writeValueAsString(payload);
         } catch (Exception e) {
-            log.error("Failed to serialize topology payload for ConfigMap '{}'", NAME, e);
+            throw new RuntimeException("Failed to serialize topology payload for ConfigMap '" + NAME + "'", e);
         }
+
+        Map<String, String> data = Map.of(DATA_KEY, json);
+        return configMapWriter.requestUpdate(NAME, data, owner)
+                .thenRun(() -> log.info("Successfully published ConfigMap '{}'", NAME));
     }
 }

@@ -5,6 +5,8 @@ import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
+
+import static com.netcracker.core.declarative.service.composite.TopologyConfigMap.NAME;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -43,7 +45,11 @@ public class CompositeStructureChangeListener {
                 return;
             }
 
-            topologyConfigMapPublisher.publish(structure, composite);
+            topologyConfigMapPublisher.publish(structure, composite)
+                    .exceptionally(ex -> {
+                        log.error("Failed to publish ConfigMap '{}' after all retries", NAME, ex);
+                        return null;
+                    });
         } catch (Exception e) {
             log.error("Failed to process composite structure update from Consul", e);
         }
