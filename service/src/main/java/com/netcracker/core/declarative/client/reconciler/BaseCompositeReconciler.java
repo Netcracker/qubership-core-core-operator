@@ -83,9 +83,8 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
         if (!isCompleted(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME)) {
             try {
                 CompositeStructure structure = compositeSpecTransformer.transform(compositeSpec);
-                CompletableFuture<Void> publishFuture = topologyConfigMapPublisher.publish(structure, composite).toCompletableFuture();
+                topologyConfigMapPublisher.publish(structure, composite).toCompletableFuture().join();
                 compositeConsulUpdater.updateCompositeStructureInConsul(compositeSpec);
-                publishFuture.join();
                 completeStep(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME);
             } catch (NoopConsulException nce) {
                 log.warn("Consul integration is disabled; skip composite CR processing");
