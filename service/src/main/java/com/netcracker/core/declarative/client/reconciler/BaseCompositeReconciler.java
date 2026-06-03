@@ -82,6 +82,8 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
 
         if (!isCompleted(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME)) {
             try {
+                CompositeStructure structure = compositeSpecTransformer.transform(compositeSpec);
+                topologyConfigMapPublisher.publish(structure, composite);
                 compositeConsulUpdater.updateCompositeStructureInConsul(compositeSpec);
                 completeStep(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME);
             } catch (NoopConsulException nce) {
@@ -126,8 +128,6 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
             CompositeSpec compositeSpec = fromResource(composite);
             log.info("CompositeStructure updated -> start CompositeStructure watcher for compositeId = {}", compositeSpec.getCompositeId());
             compositeCRHolder.set(composite);
-            CompositeStructure structure = compositeSpecTransformer.transform(compositeSpec);
-            topologyConfigMapPublisher.publish(structure, composite);
             compositeStructureWatcher.start(compositeSpec.getCompositeId());
         }
         catch (Exception e) {
