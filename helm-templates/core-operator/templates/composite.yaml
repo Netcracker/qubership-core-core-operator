@@ -1,0 +1,27 @@
+apiVersion: core.netcracker.com/v1
+kind: Composite
+subKind: CompositeStructure
+metadata:
+  name: composite-structure
+  namespace: {{ .Values.NAMESPACE }}
+  labels:
+    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME}}
+    deployer.cleanup/allow: "true"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+    app.kubernetes.io/part-of: 'Cloud-Core'
+    app.kubernetes.io/processed-by-operator: 'core-operator'
+spec:
+  originNamespace: {{ .Values.ORIGIN_NAMESPACE }}
+{{ if .Values.PEER_NAMESPACE }}
+  controllerNamespace: {{ .Values.CONTROLLER_NAMESPACE }}
+  peerNamespace: {{ .Values.PEER_NAMESPACE }}
+{{ end }}
+
+{{ if .Values.BASELINE_ORIGIN }}
+  baseline:
+    originNamespace: {{ .Values.BASELINE_ORIGIN }}
+{{ if .Values.BASELINE_PEER }}
+    controllerNamespace: {{ .Values.BASELINE_CONTROLLER }}
+    peerNamespace: {{ .Values.BASELINE_PEER }}
+{{ end }}
+{{ end }}
