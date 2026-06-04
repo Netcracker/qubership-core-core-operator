@@ -14,7 +14,7 @@ import org.mockito.ArgumentCaptor;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.netcracker.core.declarative.service.composite.CompositeStructureWatcher.CONFIG_MAP_NAME;
+import static com.netcracker.core.declarative.service.composite.TopologyConfigMap.NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
@@ -62,13 +62,13 @@ class CompositeStructureWatcherTest {
 
     @Test
     void startShouldBeIdempotent() {
-        when(configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE)).thenReturn(true);
+        when(configMapClient.shouldBeManagedByCoreOperator(NAME, NAMESPACE)).thenReturn(true);
 
         watcher.start(COMPOSITE_ID);
         watcher.start(COMPOSITE_ID);
 
         await().untilAsserted(() ->
-                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE));
+                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator(NAME, NAMESPACE));
         verify(consulLongPoller, times(1)).startWatch(eq(COMPOSITE_STRUCTURE_KEY), any());
     }
 
@@ -90,7 +90,7 @@ class CompositeStructureWatcherTest {
 
     @Test
     void shouldStartLongPollWhenManagedByCoreOperator() {
-        when(configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE)).thenReturn(true);
+        when(configMapClient.shouldBeManagedByCoreOperator(NAME, NAMESPACE)).thenReturn(true);
 
         watcher.start(COMPOSITE_ID);
 
@@ -100,18 +100,18 @@ class CompositeStructureWatcherTest {
 
     @Test
     void shouldNotStartLongPollWhenNotManagedByCoreOperator() {
-        when(configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE)).thenReturn(false);
+        when(configMapClient.shouldBeManagedByCoreOperator(NAME, NAMESPACE)).thenReturn(false);
 
         watcher.start(COMPOSITE_ID);
 
         await().untilAsserted(() ->
-                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE));
+                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator(NAME, NAMESPACE));
         verify(consulLongPoller, never()).startWatch(any(), any());
     }
 
     @Test
     void shouldStopLongPollWhenOwnershipChanges() {
-        when(configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE))
+        when(configMapClient.shouldBeManagedByCoreOperator(NAME, NAMESPACE))
                 .thenReturn(true)
                 .thenReturn(false);
 
@@ -122,13 +122,13 @@ class CompositeStructureWatcherTest {
 
     @Test
     void shouldNotFailOnConfigMapClientException() {
-        when(configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE))
+        when(configMapClient.shouldBeManagedByCoreOperator(NAME, NAMESPACE))
                 .thenThrow(new RuntimeException("API error"));
 
         watcher.start(COMPOSITE_ID);
 
         await().untilAsserted(() ->
-                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE));
+                verify(configMapClient, atLeast(1)).shouldBeManagedByCoreOperator(NAME, NAMESPACE));
         verify(consulLongPoller, never()).startWatch(any(), any());
     }
 
@@ -149,7 +149,7 @@ class CompositeStructureWatcherTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldUseCorrectEventFactoryForLongPoll() {
-        when(configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, NAMESPACE)).thenReturn(true);
+        when(configMapClient.shouldBeManagedByCoreOperator(NAME, NAMESPACE)).thenReturn(true);
         ArgumentCaptor<ConsulUpdateEventFactory<CompositeStructureUpdateEvent>> factoryCaptor =
                 ArgumentCaptor.forClass(ConsulUpdateEventFactory.class);
         when(consulLongPoller.startWatch(eq(COMPOSITE_STRUCTURE_KEY), factoryCaptor.capture()))

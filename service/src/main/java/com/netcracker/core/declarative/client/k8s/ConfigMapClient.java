@@ -65,6 +65,13 @@ public class ConfigMapClient {
 
         Map<String, String> effectiveLabels = resolveConfigMapLabels(existingConfigMap);
 
+        // Include resourceVersion for optimistic locking: if another operator writes between
+        // our label-check and the apply, Kubernetes rejects with 409 so ConfigMapWriter retries,
+        // re-reads the fresh state, and re-checks the label before proceeding.
+        String resourceVersion = existingConfigMap != null
+                ? existingConfigMap.getMetadata().getResourceVersion()
+                : null;
+
         OwnerReference ownerReference = null;
         if (owner != null) {
             ownerReference = new OwnerReferenceBuilder()
@@ -82,6 +89,7 @@ public class ConfigMapClient {
                 .withName(name)
                 .withNamespace(namespace)
                 .withLabels(effectiveLabels)
+                .withResourceVersion(resourceVersion)
                 .withOwnerReferences(ownerReference)
                 .endMetadata()
                 .withData(data)

@@ -2,6 +2,9 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
+import com.netcracker.core.declarative.service.composite.TopologyConfigMapPublisher;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
+import com.netcracker.core.declarative.service.composite.model.transformation.CompositeSpecTransformer;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,7 @@ import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.netcracker.core.declarative.client.constants.Constants.VALIDATED_STEP_NAME;
@@ -32,23 +36,28 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
     public static final String COMPOSITE_STRUCTURE_UPDATED_STEP_NAME = "CompositeStructureUpdated";
     public static final Function<String, String> XAAS_UPDATED_STEP_NAME = (String id) -> "%sUpdated".formatted(StringUtils.capitalize(id));
 
+    private CompositeSpecTransformer compositeSpecTransformer;
     private CompositeConsulUpdater compositeConsulUpdater;
     private List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers;
     private CompositeStructureWatcher compositeStructureWatcher;
     private CompositeCRHolder compositeCRHolder;
+    private TopologyConfigMapPublisher topologyConfigMapPublisher;
 
     public BaseCompositeReconciler(
             KubernetesClient client,
             CompositeConsulUpdater compositeConsulUpdater,
             List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifiers,
             CompositeStructureWatcher compositeStructureWatcher,
-            CompositeCRHolder compositeCRHolder
+            CompositeCRHolder compositeCRHolder,
+            TopologyConfigMapPublisher topologyConfigMapPublisher
     ) {
         super(client);
+        this.compositeSpecTransformer = new CompositeSpecTransformer();
         this.compositeConsulUpdater = compositeConsulUpdater;
         this.compositeStructureUpdateNotifiers = compositeStructureUpdateNotifiers;
         this.compositeStructureWatcher = compositeStructureWatcher;
         this.compositeCRHolder = compositeCRHolder;
+        this.topologyConfigMapPublisher = topologyConfigMapPublisher;
     }
 
     protected BaseCompositeReconciler() {
@@ -73,6 +82,8 @@ public abstract class BaseCompositeReconciler<T extends Composite> extends CoreR
 
         if (!isCompleted(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME)) {
             try {
+                CompositeStructure structure = compositeSpecTransformer.transform(compositeSpec);
+                topologyConfigMapPublisher.publish(structure, composite).toCompletableFuture().join();
                 compositeConsulUpdater.updateCompositeStructureInConsul(compositeSpec);
                 completeStep(composite, COMPOSITE_STRUCTURE_UPDATED_STEP_NAME);
             } catch (NoopConsulException nce) {

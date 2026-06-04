@@ -10,6 +10,7 @@ import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.CompositeStructureUpdateNotifier;
 import com.netcracker.core.declarative.service.NoopCompositeConsulUpdaterImpl;
 import com.netcracker.core.declarative.service.composite.CompositeStructureWatcher;
+import com.netcracker.core.declarative.service.composite.TopologyConfigMapPublisher;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.runtime.RawExtension;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+
+import java.util.concurrent.CompletableFuture;
 
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.MAAS_NAME;
@@ -46,7 +49,8 @@ class CompositeReconcilerTest {
                         new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
                 ),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -82,7 +86,8 @@ class CompositeReconcilerTest {
                         new CompositeStructureUpdateNotifier(DBAAS_NAME, compositeClient)
                 ),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -112,7 +117,8 @@ class CompositeReconcilerTest {
                 mock(CompositeConsulUpdater.class),
                 List.of(),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -139,7 +145,8 @@ class CompositeReconcilerTest {
                 compositeConsulUpdater,
                 List.of(),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -170,7 +177,8 @@ class CompositeReconcilerTest {
                 mock(CompositeConsulUpdater.class),
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -209,7 +217,8 @@ class CompositeReconcilerTest {
                 mock(CompositeConsulUpdater.class),
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -251,7 +260,8 @@ class CompositeReconcilerTest {
                 mock(CompositeConsulUpdater.class),
                 List.of(new CompositeStructureUpdateNotifier(MAAS_NAME, compositeClient)),
                 mock(CompositeStructureWatcher.class),
-                new CompositeCRHolder()
+                new CompositeCRHolder(),
+                mockPublisher()
         );
 
         Composite composite = new Composite();
@@ -278,6 +288,12 @@ class CompositeReconcilerTest {
                 )
         )));
         assertEquals(new CompositeSpec("C", "O", "P", new CompositeSpec.CompositeSpecBaseline("BC", "BO", "BP")), CompositeReconciler.fromResource(c));
+    }
+
+    private static TopologyConfigMapPublisher mockPublisher() {
+        TopologyConfigMapPublisher publisher = mock(TopologyConfigMapPublisher.class);
+        when(publisher.publish(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+        return publisher;
     }
 
     private CoreCondition findConditionByType(Composite composite, String type) {

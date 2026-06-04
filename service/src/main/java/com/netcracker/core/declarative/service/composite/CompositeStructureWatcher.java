@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Watches Consul for composite structure changes using long-polling.
  * <p>
- * Periodically checks if the {@value #CONFIG_MAP_NAME} ConfigMap is managed by core-operator.
+ * Periodically checks if the {@value TopologyConfigMap#NAME} ConfigMap is managed by core-operator.
  * If managed, starts watching the Consul path {@code composite/{compositeId}/structure};
  * otherwise stops watching. This allows another operator to take over ConfigMap management when needed.
  * <p>
@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 @ApplicationScoped
 @Slf4j
 public class CompositeStructureWatcher {
-    public static final String CONFIG_MAP_NAME = "topology";
     private static final String COMPOSITE_STRUCTURE_KEY_TEMPLATE = "composite/%s/structure";
 
     private final ConsulLongPoller consulLongPoller;
@@ -91,8 +90,8 @@ public class CompositeStructureWatcher {
 
     private void ensureWatchState(String compositeId) {
         try {
-            boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(CONFIG_MAP_NAME, namespace);
-            log.debug("Should core-operator manage '{}': {}", CONFIG_MAP_NAME, shouldManage);
+            boolean shouldManage = configMapClient.shouldBeManagedByCoreOperator(TopologyConfigMap.NAME, namespace);
+            log.debug("Should core-operator manage '{}': {}", TopologyConfigMap.NAME, shouldManage);
             if (shouldManage) {
                 startLongPoll(compositeId);
             } else {
@@ -114,7 +113,7 @@ public class CompositeStructureWatcher {
 
     private void stopLongPoll() {
         if (isLongPollRunning()) {
-            log.info("Stopping Consul long-poll for '{}'", CONFIG_MAP_NAME);
+            log.info("Stopping Consul long-poll for '{}'", TopologyConfigMap.NAME);
             longPollSession.cancel();
             longPollSession = null;
         }
