@@ -3,8 +3,7 @@ package com.netcracker.core.declarative.service.composite.model.transformation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
-import com.netcracker.core.declarative.service.CloudProviderDetector;
-import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,9 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
-import static com.netcracker.core.declarative.service.composite.model.CloudProvider.AKS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -27,7 +24,7 @@ class CompositeStructureTransformerTest {
 
     @BeforeEach
     void setUp() {
-        compositeStructureTransformer = new CompositeStructureTransformer(Optional.of(AKS.name()), mock(CloudProviderDetector.class));
+        compositeStructureTransformer = new CompositeStructureTransformer();
     }
 
     @Test
@@ -39,7 +36,7 @@ class CompositeStructureTransformerTest {
         String json = serialize(keyValues);
 
         assertEquals("""
-                        {"cloudProvider":"%s","composite":{"baseline":{"origin":"bs-origin"}}}""".formatted(AKS),
+                        {"baseline":{"origin":"bs-origin"}}""",
                 json);
     }
 
@@ -59,7 +56,7 @@ class CompositeStructureTransformerTest {
         String json = serialize(keyValues);
 
         assertEquals("""
-                        {"cloudProvider":"%s","composite":{"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"}}}""".formatted(AKS),
+                        {"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"}}""",
                 json);
     }
 
@@ -74,7 +71,7 @@ class CompositeStructureTransformerTest {
         String json = serialize(keyValues);
 
         assertEquals("""
-                        {"cloudProvider":"%s","composite":{"baseline":{"origin":"bs-origin"},"satellites":[{"origin":"st-1-origin"},{"origin":"st-2-origin"}]}}""".formatted(AKS),
+                        {"baseline":{"origin":"bs-origin"},"satellites":[{"origin":"st-1-origin"},{"origin":"st-2-origin"}]}""",
                 json);
     }
 
@@ -110,8 +107,7 @@ class CompositeStructureTransformerTest {
         String json = serialize(keyValues);
 
         assertEquals("""
-                        {"cloudProvider":"%s","composite":{"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"},"satellites":[{"controller":"st-1-controller","origin":"st-1-origin","peer":"st-1-peer"},{"controller":"st-2-controller","origin":"st-2-origin","peer":"st-2-peer"}]}}"""
-                        .formatted(AKS),
+                        {"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"},"satellites":[{"controller":"st-1-controller","origin":"st-1-origin","peer":"st-1-peer"},{"controller":"st-2-controller","origin":"st-2-origin","peer":"st-2-peer"}]}""",
                 json);
     }
 
@@ -140,8 +136,7 @@ class CompositeStructureTransformerTest {
         String json = serialize(keyValues);
 
         assertEquals("""
-                        {"cloudProvider":"%s","composite":{"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"},"satellites":[{"controller":"st-1-controller","origin":"st-1-origin","peer":"st-1-peer"},{"origin":"st-2-origin"}]}}"""
-                        .formatted(AKS),
+                        {"baseline":{"controller":"bs-controller","origin":"bs-origin","peer":"bs-peer"},"satellites":[{"controller":"st-1-controller","origin":"st-1-origin","peer":"st-1-peer"},{"origin":"st-2-origin"}]}""",
                 json);
     }
 
@@ -156,7 +151,7 @@ class CompositeStructureTransformerTest {
         String json = serialize(keyValues);
 
         assertEquals("""
-                        {"cloudProvider":"%s","composite":{"baseline":{"origin":"bs-origin"}}}""".formatted(AKS),
+                        {"baseline":{"origin":"bs-origin"}}""",
                 json);
     }
 
@@ -258,9 +253,9 @@ class CompositeStructureTransformerTest {
                     return gv;
                 })
                 .toList();
-        CompositeStructureConfigMapPayload payload = compositeStructureTransformer.transform(values);
+        CompositeStructure structure = compositeStructureTransformer.transform(values);
         try {
-            return OBJECT_MAPPER.writeValueAsString(payload);
+            return OBJECT_MAPPER.writeValueAsString(structure);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }

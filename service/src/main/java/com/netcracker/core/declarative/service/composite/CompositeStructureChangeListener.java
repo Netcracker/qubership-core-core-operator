@@ -1,53 +1,42 @@
 package com.netcracker.core.declarative.service.composite;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.core.declarative.resources.composite.Composite;
 import com.netcracker.core.declarative.service.CompositeCRHolder;
 import com.netcracker.core.declarative.service.composite.consul.CompositeStructureUpdateEvent;
-import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
+import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
 import com.netcracker.core.declarative.service.composite.model.transformation.CompositeStructureTransformer;
+
+import static com.netcracker.core.declarative.service.composite.TopologyConfigMap.NAME;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Map;
-
-import static com.netcracker.core.declarative.service.composite.CompositeStructureWatcher.CONFIG_MAP_NAME;
-
 /**
- * Handles {@link CompositeStructureUpdateEvent} by transforming Consul data
- * and persisting it to the {@code topology} ConfigMap.
+ * Handles {@link CompositeStructureUpdateEvent} by transforming Consul data into a
+ * {@link CompositeStructure} and publishing it to the {@code topology} ConfigMap.
  */
 @ApplicationScoped
 @Slf4j
 public class CompositeStructureChangeListener {
-    private static final String CONFIG_MAP_DATA_KEY = "data";
 
-    private final ObjectMapper objectMapper;
-    private final ConfigMapWriter configMapWriter;
     private final CompositeStructureTransformer compositeStructureTransformer;
     private final CompositeCRHolder compositeCRHolder;
+    private final TopologyConfigMapPublisher topologyConfigMapPublisher;
 
     @Inject
-    public CompositeStructureChangeListener(ObjectMapper objectMapper,
-                                            ConfigMapWriter configMapWriter,
-                                            CompositeStructureTransformer compositeStructureTransformer,
-                                            CompositeCRHolder compositeCRHolder) {
-        this.objectMapper = objectMapper;
-        this.configMapWriter = configMapWriter;
+    public CompositeStructureChangeListener(CompositeStructureTransformer compositeStructureTransformer,
+                                            CompositeCRHolder compositeCRHolder,
+                                            TopologyConfigMapPublisher topologyConfigMapPublisher) {
         this.compositeStructureTransformer = compositeStructureTransformer;
         this.compositeCRHolder = compositeCRHolder;
+        this.topologyConfigMapPublisher = topologyConfigMapPublisher;
     }
 
     void onStructureUpdated(@Observes CompositeStructureUpdateEvent event) {
         log.info("Received composite structure update from Consul with {} entries", event.getValues().size());
         try {
-            CompositeStructureConfigMapPayload payload = compositeStructureTransformer.transform(event.getValues());
-            log.debug("Transformed composite structure: {}", payload);
-
-            String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload);
-            Map<String, String> compositeStructureContent = Map.of(CONFIG_MAP_DATA_KEY, json);
+            CompositeStructure structure = compositeStructureTransformer.transform(event.getValues());
 
             Composite composite = compositeCRHolder.get();
             if (composite == null) {
@@ -56,10 +45,9 @@ public class CompositeStructureChangeListener {
                 return;
             }
 
-            configMapWriter.requestUpdate(CONFIG_MAP_NAME, compositeStructureContent, composite)
-                    .thenRun(() -> log.info("Successfully updated ConfigMap '{}'", CONFIG_MAP_NAME))
+            topologyConfigMapPublisher.publish(structure, composite)
                     .exceptionally(ex -> {
-                        log.error("Failed to update ConfigMap '{}' after all retries", CONFIG_MAP_NAME, ex);
+                        log.error("Failed to publish ConfigMap '{}' after all retries", NAME, ex);
                         return null;
                     });
         } catch (Exception e) {

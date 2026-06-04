@@ -1,15 +1,10 @@
 package com.netcracker.core.declarative.service.composite.model.transformation;
 
 import com.netcracker.cloud.quarkus.consul.client.model.GetValue;
-import com.netcracker.core.declarative.service.CloudProviderDetector;
-import com.netcracker.core.declarative.service.composite.model.CloudProvider;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructure;
-import com.netcracker.core.declarative.service.composite.model.CompositeStructureConfigMapPayload;
 import com.netcracker.core.declarative.service.composite.model.CompositeStructureParseException;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -27,27 +22,15 @@ import java.util.stream.Collectors;
 public class CompositeStructureTransformer {
     private static final Pattern COMPOSITE_STRUCTURE_ENTRY_PATTERN = Pattern.compile("^composite/[^/]+/structure/(?<namespace>[^/]+)/(?<attribute>[^/]+)$");
 
-    private final CloudProvider cloudProvider;
-
-    @Inject
-    public CompositeStructureTransformer(@ConfigProperty(name = "CLOUD_PROVIDER") Optional<String> cloudProvider, CloudProviderDetector cloudProviderDetector) {
-        this.cloudProvider = cloudProvider
-                .map(String::trim)
-                .filter(s -> !s.isBlank())
-                .map(CloudProvider::fromString)
-                .orElseGet(cloudProviderDetector::getCloudProvider);
-    }
-
-    public CompositeStructureConfigMapPayload transform(List<GetValue> values) {
+    public CompositeStructure transform(List<GetValue> values) {
         log.debug("Transforming {} Consul KV entries", values.size());
         List<Namespace> namespaces = parseNamespaces(values);
         log.debug("Parsed {} namespaces from Consul data", namespaces.size());
 
-        CompositeStructure compositeStructure = new CompositeStructure(
+        return new CompositeStructure(
                 buildBaseline(namespaces),
                 buildSatellites(namespaces)
         );
-        return new CompositeStructureConfigMapPayload(cloudProvider.getValue(), compositeStructure);
     }
 
     private List<Namespace> parseNamespaces(List<GetValue> values) {
