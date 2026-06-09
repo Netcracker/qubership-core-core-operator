@@ -5,9 +5,12 @@ import org.junit.jupiter.api.Test;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
 import com.netcracker.core.declarative.service.*;
 
+import io.quarkus.kubernetes.client.KubernetesConfigCustomizer;
+
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.List;
+import java.lang.reflect.Field;
 
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.MAAS_NAME;
@@ -107,5 +110,22 @@ class ConfigurationTest {
         assertEquals(2, compositeStructureUpdateNotifiers.size());
         assertTrue(compositeStructureUpdateNotifiers.stream().anyMatch(n -> MAAS_NAME.equals(n.getXaasName())));
         assertTrue(compositeStructureUpdateNotifiers.stream().anyMatch(n -> DBAAS_NAME.equals(n.getXaasName())));
+    }
+
+    @Test
+    void kubernetesConfigCustomizerSetsWebsocketPingInterval() throws Exception {
+        Configuration configuration = new Configuration();
+
+        Field field = Configuration.class.getDeclaredField("websocketPingIntervalSeconds");
+        field.setAccessible(true);
+        field.set(configuration, 5L);
+
+        KubernetesConfigCustomizer customizer = configuration.kubernetesConfigCustomizer();
+
+        io.fabric8.kubernetes.client.Config config =
+            io.fabric8.kubernetes.client.Config.empty();
+        customizer.customize(config);
+
+        assertEquals(5_000L, config.getWebsocketPingInterval());
     }
 }

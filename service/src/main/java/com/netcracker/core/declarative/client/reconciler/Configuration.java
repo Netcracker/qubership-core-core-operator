@@ -7,6 +7,7 @@ import com.netcracker.core.declarative.client.rest.DeclarativeClient;
 import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
 import com.netcracker.core.declarative.service.*;
 import io.quarkus.arc.DefaultBean;
+import io.quarkus.kubernetes.client.KubernetesConfigCustomizer;
 import io.quarkus.restclient.runtime.QuarkusRestClientBuilder;
 import io.vertx.ext.consul.ConsulClient;
 import io.vertx.ext.consul.ConsulClientOptions;
@@ -18,6 +19,7 @@ import jakarta.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
+import io.fabric8.kubernetes.client.Config;
 
 import java.net.URI;
 import java.net.URL;
@@ -40,8 +42,10 @@ public class Configuration {
     @Produces
     @Named("meshDeclarativeClient")
     @ApplicationScoped
-    public MeshClientV3 meshDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.mesh-client-v3.url") String meshUrl, RestClientCustomizer restClientCustomizer) {
-        return restClientCustomizer.customize(new QuarkusRestClientBuilder().baseUri(URI.create(meshUrl)))
+    public MeshClientV3 meshDeclarativeClient(
+            @ConfigProperty(name = "quarkus.rest-client.mesh-client-v3.url") String meshUrl,
+            RestClientCustomizer restClientCustomizer) {
+        return restClientCustomizer.customize(baseBuilder(meshUrl))
                 .build(MeshClientV3.class);
     }
 
@@ -152,6 +156,23 @@ public class Configuration {
         return new ObjectMapper();
     }
 
+    @ConfigProperty(name = "core.operator.websocket.ping-interval-seconds", defaultValue = "5")
+    long websocketPingIntervalSeconds;    
+
+    @Produces
+    @ApplicationScoped
+    public KubernetesConfigCustomizer kubernetesConfigCustomizer() {
+        long pingIntervalMs = websocketPingIntervalSeconds * 1000L;
+        return new KubernetesConfigCustomizer() {
+            @Override
+            public void customize(io.fabric8.kubernetes.client.Config config) {
+                config.setWebsocketPingInterval(pingIntervalMs);
+                log.info("KubernetesClient configured: websocketPingInterval={}s",
+                    pingIntervalMs / 1000);
+            }
+        };
+    }
+
     @Produces
     @DefaultBean
     @ApplicationScoped
@@ -159,13 +180,28 @@ public class Configuration {
         return builder -> builder;
     }
 
+    @ConfigProperty(name = "cloud.declarative.rest.connect-timeout-ms", defaultValue = "2000")
+    long declarativeConnectTimeoutMs;
+
+    @ConfigProperty(name = "cloud.declarative.rest.read-timeout-ms", defaultValue = "5000")
+    long declarativeReadTimeoutMs;
+
     public interface RestClientCustomizer {
         RestClientBuilder customize(RestClientBuilder builder);
     }
 
-    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl, RestClientCustomizer restClientCustomizer) {
-        return restClientCustomizer.customize(new QuarkusRestClientBuilder()
-                        .baseUri(URI.create(xaasUrl)))
-                .build(DeclarativeClient.class);
+    private RestClientBuilder baseBuilder(String baseUrl) {
+        log.debug("creating declarative REST client for {} with connect={}ms read={}ms",
+                baseUrl, declarativeConnectTimeoutMs, declarativeReadTimeoutMs);
+        return new QuarkusRestClientBuilder()
+                .baseUri(URI.create(baseUrl))
+                .connectTimeout(declarativeConnectTimeoutMs, TimeUnit.MILLISECONDS)
+                .readTimeout(declarativeReadTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl,
+                                                      RestClientCustomizer restClientCustomizer) {
+        return restClientCustomizer.customize(baseBuilder(xaasUrl))
+            .build(DeclarativeClient.class);
     }
 }
