@@ -15,7 +15,7 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.33.1</quarkus.platform.version>
-        <jacoco.plugin.version>0.8.14</jacoco.plugin.version>
+        <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
         <nc.security-quarkus.version>6.9.0</nc.security-quarkus.version>
