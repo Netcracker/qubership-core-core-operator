@@ -135,6 +135,8 @@ spec:
                     value: '{{ .Values.LOG_LEVEL }}'
                 -   name: DEPLOYMENT_SESSION_ID
                     value: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+                -   name: KUBERNETES_M2M_ENABLED
+                    value: '{{ .Values.KUBERNETES_M2M_ENABLED }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'
