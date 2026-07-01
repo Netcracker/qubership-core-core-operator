@@ -619,6 +619,14 @@
       "title": "Cloud Provider",
       "description": "Current cloud provider. Could be EKS, GKE, AKS, OnPrem",
       "default": "OnPrem"
+    },
+    "KUBERNETES_M2M_ENABLED": {
+      "$id": "#/properties/KUBERNETES_M2M_ENABLED",
+      "type": "boolean",
+      "title": "The KUBERNETES_M2M_ENABLED schema",
+      "description": "Shows that kubernetes m2m communication is enabled.",
+      "internal": true,
+      "default": false
     }
   },
   "additionalProperties": true

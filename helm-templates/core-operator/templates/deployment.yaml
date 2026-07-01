@@ -56,6 +56,22 @@ spec:
         spec:
             serviceAccountName: '{{ .Values.SERVICE_NAME }}'
             volumes:
+              - name: projected-tokens
+                projected:
+                  defaultMode: 292
+                  sources:
+                    - serviceAccountToken:
+                        path: netcracker/token
+                        audience: netcracker
+                        expirationSeconds: 600
+                    - serviceAccountToken:
+                        path: dbaas/token
+                        audience: dbaas
+                        expirationSeconds: 600
+                    - serviceAccountToken:
+                        path: maas/token
+                        audience: maas
+                        expirationSeconds: 600
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
             -   name: tmp
                 emptyDir: {}
@@ -119,6 +135,8 @@ spec:
                     value: '{{ .Values.LOG_LEVEL }}'
                 -   name: DEPLOYMENT_SESSION_ID
                     value: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+                -   name: KUBERNETES_M2M_ENABLED
+                    value: '{{ .Values.KUBERNETES_M2M_ENABLED }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'
@@ -151,6 +169,9 @@ spec:
                         drop:
                           - ALL
                 volumeMounts:
+                  - name: projected-tokens
+                    mountPath: /var/run/secrets/tokens
+                    readOnly: true
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
                 -   name: tmp
                     mountPath: /tmp
