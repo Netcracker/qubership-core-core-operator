@@ -12,3 +12,4 @@ WORKDIR /app
 USER 10001:10001
 
 CMD ["/usr/bin/java", "-Xmx512m", "-jar", "/app/quarkus-run.jar"]
+
