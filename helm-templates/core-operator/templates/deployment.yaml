@@ -72,20 +72,20 @@ spec:
                         path: maas/token
                         audience: maas
                         expirationSeconds: 600
-{{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
-            -   name: tmp
+{{- if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
+              - name: tmp
                 emptyDir: {}
-            -   name: env
+              - name: env
                 emptyDir: {}
-            -   name: ncdiag
+              - name: ncdiag
                 emptyDir: {}
-            -   name: glowroot
+              - name: glowroot
                 emptyDir: {}
-            -   name: nss
+              - name: nss
                 emptyDir: {}
-            -   name: java-certs
+              - name: java-certs
                 emptyDir: {}
-{{ end }}
+{{- end }}
             containers:
             -   name: '{{ .Values.SERVICE_NAME }}'
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
@@ -173,20 +173,20 @@ spec:
                   - name: projected-tokens
                     mountPath: /var/run/secrets/tokens
                     readOnly: true
-{{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
-                -   name: tmp
+{{- if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
+                  - name: tmp
                     mountPath: /tmp
-                -   name: env
+                  - name: env
                     mountPath: /etc/env
-                -   name: ncdiag
+                  - name: ncdiag
                     mountPath: /app/ncdiag
-                -   name: glowroot
+                  - name: glowroot
                     mountPath: /app/glowroot
-                -   name: nss
+                  - name: nss
                     mountPath: /app/nss
-                -   name: java-certs
+                  - name: java-certs
                     mountPath: /etc/ssl/certs/java
-{{ end }}
+{{- end }}
             topologySpreadConstraints:
 {{- if .Values.CLOUD_TOPOLOGIES }}
 {{- range $v := .Values.CLOUD_TOPOLOGIES }}
