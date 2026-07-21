@@ -58,6 +58,7 @@ class ConfigurationTest {
                 List.of("maas", "dbaas"),
                 1000L,
                 2000L,
+                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(2, compositeStructureUpdateNotifiers.size());
@@ -74,6 +75,7 @@ class ConfigurationTest {
                 List.of(),
                 1000L,
                 2000L,
+                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(0, compositeStructureUpdateNotifiers.size());
@@ -88,6 +90,7 @@ class ConfigurationTest {
                 List.of("maas"),
                 1000L,
                 2000L,
+                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(1, compositeStructureUpdateNotifiers.size());
@@ -103,6 +106,7 @@ class ConfigurationTest {
                 List.of("MaAs", "DbAaS"),
                 1000L,
                 2000L,
+                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(2, compositeStructureUpdateNotifiers.size());
