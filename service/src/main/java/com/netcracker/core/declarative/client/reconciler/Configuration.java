@@ -2,8 +2,12 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
+import com.netcracker.cloud.quarkus.security.auth.M2MManager;
+import com.netcracker.cloud.security.core.utils.k8s.M2MClientFactory;
 import com.netcracker.core.declarative.client.rest.CompositeClient;
 import com.netcracker.core.declarative.client.rest.DeclarativeClient;
+import com.netcracker.core.declarative.client.rest.OkHttpCompositeClient;
+import com.netcracker.core.declarative.client.rest.OkHttpDeclarativeClient;
 import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
 import com.netcracker.core.declarative.service.*;
 import io.quarkus.arc.DefaultBean;
@@ -33,8 +37,11 @@ public class Configuration {
     @Produces
     @Named("maasDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient maasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.maas-client.url") String maasUrl, RestClientCustomizer restClientCustomizer) {
-        return createXaasDeclarativeClient(maasUrl, restClientCustomizer);
+    public DeclarativeClient maasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.maas-client.url") String maasUrl, ObjectMapper objectMapper) {
+        return new OkHttpDeclarativeClient(
+                M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue()),
+                maasUrl,
+                objectMapper);
     }
 
     @Produces
@@ -62,8 +69,11 @@ public class Configuration {
     @Produces
     @Named("dbaasDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.dbaas-client.url") String dbaasUrl, RestClientCustomizer restClientCustomizer) {
-        return createXaasDeclarativeClient(dbaasUrl, restClientCustomizer);
+    public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.dbaas-client.url") String dbaasUrl, ObjectMapper objectMapper) {
+        return new OkHttpDeclarativeClient(
+                M2MClientFactory.getDbaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue()),
+                dbaasUrl,
+                objectMapper);
     }
 
     @Produces
