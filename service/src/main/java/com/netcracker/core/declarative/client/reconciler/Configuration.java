@@ -97,9 +97,19 @@ public class Configuration {
                 .map(xaas -> {
                     CompositeClient client;
                     if (MAAS_NAME.equalsIgnoreCase(xaas.getKey())) {
-                        client = buildCompositeClient(M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue()), xaas.getValue(), objectMapper);
+                        OkHttpClient httpClient = M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue())
+                                .newBuilder()
+                                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                                .build();
+                        client = buildCompositeClient(httpClient, xaas.getValue(), objectMapper);
                     } else if (DBAAS_NAME.equalsIgnoreCase(xaas.getKey())) {
-                        client = buildCompositeClient(M2MClientFactory.getDbaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue()), xaas.getValue(), objectMapper);
+                        OkHttpClient httpClient = M2MClientFactory.getDbaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue())
+                                .newBuilder()
+                                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                                .build();
+                        client = buildCompositeClient(httpClient, xaas.getValue(), objectMapper);
                     } else {
                         client = restClientCustomizer.customize(new QuarkusRestClientBuilder()
                                         .baseUri(URI.create(xaas.getValue()))
