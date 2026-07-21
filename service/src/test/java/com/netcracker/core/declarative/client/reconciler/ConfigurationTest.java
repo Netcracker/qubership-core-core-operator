@@ -1,6 +1,5 @@
 package com.netcracker.core.declarative.client.reconciler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.inject.Instance;
 import org.junit.jupiter.api.Test;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
@@ -58,7 +57,6 @@ class ConfigurationTest {
                 List.of("maas", "dbaas"),
                 1000L,
                 2000L,
-                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(2, compositeStructureUpdateNotifiers.size());
@@ -75,7 +73,6 @@ class ConfigurationTest {
                 List.of(),
                 1000L,
                 2000L,
-                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(0, compositeStructureUpdateNotifiers.size());
@@ -90,7 +87,6 @@ class ConfigurationTest {
                 List.of("maas"),
                 1000L,
                 2000L,
-                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(1, compositeStructureUpdateNotifiers.size());
@@ -106,7 +102,6 @@ class ConfigurationTest {
                 List.of("MaAs", "DbAaS"),
                 1000L,
                 2000L,
-                new ObjectMapper(),
                 builder -> builder
         );
         assertEquals(2, compositeStructureUpdateNotifiers.size());
