@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.core.Response;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import okhttp3.RequestBody;
 import org.slf4j.MDC;
 
@@ -29,7 +28,7 @@ public class OkHttpCompositeClient implements CompositeClient {
     public Response structures(CompositeClient.Request compositeRequest) {
         try {
             byte[] body = objectMapper.writeValueAsBytes(compositeRequest);
-            Request request = new Request.Builder()
+            okhttp3.Request request = new okhttp3.Request.Builder()
                     .url(baseUrl + "/api/composite/v1/structures")
                     .header(X_REQUEST_ID, requestId())
                     .post(RequestBody.create(body, JSON))

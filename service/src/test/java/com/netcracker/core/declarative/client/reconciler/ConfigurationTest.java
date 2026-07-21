@@ -1,5 +1,6 @@
 package com.netcracker.core.declarative.client.reconciler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.inject.Instance;
 import org.junit.jupiter.api.Test;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
