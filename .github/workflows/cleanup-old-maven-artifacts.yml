@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Run Maven Cleanup Action
         uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@8c6dbeb901920bae9f40d7d7b646d8d9127e1ce7 # v2.4.0
