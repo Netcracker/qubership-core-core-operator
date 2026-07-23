@@ -10,14 +10,12 @@ import org.eclipse.microprofile.rest.client.annotation.RegisterClientHeaders;
 
 @Path("/api/declarations/v{apiVersion}/")
 @RegisterClientHeaders(RequestIdHeaderFactory.class)
-public interface DeclarativeRestClient extends DeclarativeClient {
+public interface DeclarativeRestClient {
 
-    @Override
     @Path("apply")
     @POST
     Response apply(@PathParam("apiVersion") String apiVersion, DeclarativeRequest request);
 
-    @Override
     @Path("operation/{trackingID}/status")
     @GET
     Response getStatus(@PathParam("apiVersion") String apiVersion, @PathParam("trackingID") String trackingId);

@@ -257,7 +257,7 @@ class CompositeConsulUpdaterImplTest {
                 new Response.Builder()
                         .request(new Request.Builder().url("http://localhost").build())
                         .protocol(Protocol.HTTP_1_1)
-                        .code(204) // 204 is No Content
+                        .code(204)
                         .message("No Content")
                         .build()
         );

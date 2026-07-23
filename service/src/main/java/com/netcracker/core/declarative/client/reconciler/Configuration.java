@@ -4,11 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
 import com.netcracker.cloud.quarkus.security.auth.M2MManager;
 import com.netcracker.cloud.security.core.utils.k8s.M2MClientFactory;
-import com.netcracker.core.declarative.client.rest.CompositeClient;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
-import com.netcracker.core.declarative.client.rest.DeclarativeRestClient;
+import com.netcracker.core.declarative.client.rest.*;
 import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
-import com.netcracker.core.declarative.client.rest.okhttp.OkHttpDeclarativeClient;
 import com.netcracker.core.declarative.client.rest.tracing.RequestIdInterceptor;
 import com.netcracker.core.declarative.service.*;
 import io.quarkus.arc.DefaultBean;
@@ -59,15 +56,15 @@ public class Configuration {
     @Produces
     @Named("idpExtensionsDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient idpExtensionsDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.idp-extensions-client.url") String idpExtensionsUrl, RestClientCustomizer restClientCustomizer) {
-        return createXaasDeclarativeClient(idpExtensionsUrl, restClientCustomizer);
+    public DeclarativeClient idpExtensionsDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.idp-extensions-client.url") String idpExtensionsUrl, RestClientCustomizer restClientCustomizer, ObjectMapper objectMapper) {
+        return createXaasDeclarativeClient(idpExtensionsUrl, restClientCustomizer, objectMapper);
     }
 
     @Produces
     @Named("keyManagerDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient keyManagerDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.key-manager-client.url") String keyManagerUrl, RestClientCustomizer restClientCustomizer) {
-        return createXaasDeclarativeClient(keyManagerUrl, restClientCustomizer);
+    public DeclarativeClient keyManagerDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.key-manager-client.url") String keyManagerUrl, RestClientCustomizer restClientCustomizer, ObjectMapper objectMapper) {
+        return createXaasDeclarativeClient(keyManagerUrl, restClientCustomizer, objectMapper);
     }
 
     @Produces
@@ -184,19 +181,10 @@ public class Configuration {
         RestClientBuilder customize(RestClientBuilder builder);
     }
 
-    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl, RestClientCustomizer restClientCustomizer) {
-        return restClientCustomizer.customize(new QuarkusRestClientBuilder()
+    private DeclarativeClient createXaasDeclarativeClient(String xaasUrl, RestClientCustomizer restClientCustomizer, ObjectMapper objectMapper) {
+        var restClient = restClientCustomizer.customize(new QuarkusRestClientBuilder()
                         .baseUri(URI.create(xaasUrl)))
                 .build(DeclarativeRestClient.class);
-    }
-
-    @Produces
-    @ApplicationScoped
-    public OkHttpClient okHttpClient() {
-        return new OkHttpClient.Builder()
-                .addInterceptor(new RequestIdInterceptor())
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .build();
+        return new QuarkusDeclarativeClient(restClient, objectMapper);
     }
 }

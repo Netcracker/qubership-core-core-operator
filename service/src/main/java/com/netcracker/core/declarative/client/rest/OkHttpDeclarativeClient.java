@@ -1,12 +1,7 @@
-package com.netcracker.core.declarative.client.rest.okhttp;
+package com.netcracker.core.declarative.client.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
-import com.netcracker.core.declarative.client.rest.DeclarativeRequest;
 import jakarta.ws.rs.ProcessingException;
-import jakarta.ws.rs.core.MultivaluedHashMap;
-import jakarta.ws.rs.core.MultivaluedMap;
-import jakarta.ws.rs.core.Response;
 import okhttp3.*;
 
 import java.io.IOException;
@@ -29,7 +24,7 @@ public class OkHttpDeclarativeClient implements DeclarativeClient {
     }
 
     @Override
-    public Response apply(String apiVersion, DeclarativeRequest request) {
+    public DeclarativeApiResponse apply(String apiVersion, DeclarativeRequest request) {
         HttpUrl url = baseUrl.newBuilder()
                 .addPathSegment("api")
                 .addPathSegment("declarations")
@@ -47,7 +42,7 @@ public class OkHttpDeclarativeClient implements DeclarativeClient {
     }
 
     @Override
-    public Response getStatus(String apiVersion, String trackingId) {
+    public DeclarativeApiResponse getStatus(String apiVersion, String trackingId) {
         HttpUrl url = baseUrl.newBuilder()
                 .addPathSegment("api")
                 .addPathSegment("declarations")
@@ -60,13 +55,10 @@ public class OkHttpDeclarativeClient implements DeclarativeClient {
         return execute(httpRequest);
     }
 
-    private Response execute(Request httpRequest) {
-        try (okhttp3.Response httpResponse = httpClient.newCall(httpRequest).execute()) {
-            byte[] entityBytes = httpResponse.body() != null ? httpResponse.body().bytes() : null;
-            MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
-            httpResponse.headers().names().forEach(name ->
-                    httpResponse.headers(name).forEach(value -> headers.add(name, value)));
-            return new BufferedJsonResponse(httpResponse.code(), httpResponse.message(), headers, entityBytes, objectMapper);
+    private DeclarativeApiResponse execute(Request httpRequest) {
+        try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
+            byte[] bytes = httpResponse.body() != null ? httpResponse.body().bytes() : null;
+            return new DeclarativeApiResponse(httpResponse.code(), bytes, objectMapper);
         } catch (IOException e) {
             throw new ProcessingException("Failed to execute HTTP request to " + httpRequest.url(), e);
         }
