@@ -74,7 +74,7 @@ public class Configuration {
     @Named("dbaasDeclarativeClient")
     @ApplicationScoped
     public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "api.dbaas.address") String dbaasUrl, ObjectMapper objectMapper) {
-        var client = M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
+        var client = M2MClientFactory.getDbaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
         client.newBuilder()
                 .addInterceptor(new RequestIdInterceptor())
                 .connectTimeout(5, TimeUnit.SECONDS)
