@@ -71,6 +71,11 @@
             <artifactId>quarkus-resteasy-client-jackson</artifactId>
         </dependency>
         <dependency>
+            <groupId>net.ltgt.jaxrs</groupId>
+            <artifactId>resteasy-client-okhttp3</artifactId>
+            <version>1.1</version>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
         </dependency>
@@ -106,6 +111,15 @@
             <groupId>io.smallrye</groupId>
             <artifactId>jandex</artifactId>
             <version>3.5.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.netcracker.cloud.quarkus</groupId>
+            <artifactId>security-adapters</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.netcracker.cloud.security.core.utils</groupId>
+            <artifactId>k8s-utils</artifactId>
+            <version>3.1.6</version>
         </dependency>
         <!-- Test -->
         <dependency>

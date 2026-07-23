@@ -2,9 +2,14 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
+import com.netcracker.cloud.quarkus.security.auth.M2MManager;
+import com.netcracker.cloud.security.core.utils.k8s.M2MClientFactory;
 import com.netcracker.core.declarative.client.rest.CompositeClient;
 import com.netcracker.core.declarative.client.rest.DeclarativeClient;
+import com.netcracker.core.declarative.client.rest.DeclarativeRestClient;
 import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
+import com.netcracker.core.declarative.client.rest.okhttp.OkHttpDeclarativeClient;
+import com.netcracker.core.declarative.client.rest.tracing.RequestIdInterceptor;
 import com.netcracker.core.declarative.service.*;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.restclient.runtime.QuarkusRestClientBuilder;
@@ -16,6 +21,7 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 
@@ -33,8 +39,13 @@ public class Configuration {
     @Produces
     @Named("maasDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient maasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.maas-client.url") String maasUrl, RestClientCustomizer restClientCustomizer) {
-        return createXaasDeclarativeClient(maasUrl, restClientCustomizer);
+    public DeclarativeClient maasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.maas-client.url") String maasUrl, ObjectMapper objectMapper) {
+        var client = M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
+        client.newBuilder()
+                .addInterceptor(new RequestIdInterceptor())
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS);
+        return new OkHttpDeclarativeClient(client, maasUrl, objectMapper);
     }
 
     @Produces
@@ -62,8 +73,13 @@ public class Configuration {
     @Produces
     @Named("dbaasDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.dbaas-client.url") String dbaasUrl, RestClientCustomizer restClientCustomizer) {
-        return createXaasDeclarativeClient(dbaasUrl, restClientCustomizer);
+    public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.dbaas-client.url") String dbaasUrl, ObjectMapper objectMapper) {
+        var client = M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
+        client.newBuilder()
+                .addInterceptor(new RequestIdInterceptor())
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS);
+        return new OkHttpDeclarativeClient(client, dbaasUrl, objectMapper);
     }
 
     @Produces
@@ -166,6 +182,16 @@ public class Configuration {
     private DeclarativeClient createXaasDeclarativeClient(String xaasUrl, RestClientCustomizer restClientCustomizer) {
         return restClientCustomizer.customize(new QuarkusRestClientBuilder()
                         .baseUri(URI.create(xaasUrl)))
-                .build(DeclarativeClient.class);
+                .build(DeclarativeRestClient.class);
+    }
+
+    @Produces
+    @ApplicationScoped
+    public OkHttpClient okHttpClient() {
+        return new OkHttpClient.Builder()
+                .addInterceptor(new RequestIdInterceptor())
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build();
     }
 }
