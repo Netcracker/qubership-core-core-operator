@@ -39,7 +39,7 @@ public class Configuration {
     @Produces
     @Named("maasDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient maasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.maas-client.url") String maasUrl, ObjectMapper objectMapper) {
+    public DeclarativeClient maasDeclarativeClient(@ConfigProperty(name = "maas.internal.address") String maasUrl, ObjectMapper objectMapper) {
         var client = M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
         client.newBuilder()
                 .addInterceptor(new RequestIdInterceptor())
@@ -73,7 +73,7 @@ public class Configuration {
     @Produces
     @Named("dbaasDeclarativeClient")
     @ApplicationScoped
-    public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "quarkus.rest-client.dbaas-client.url") String dbaasUrl, ObjectMapper objectMapper) {
+    public DeclarativeClient dbaasDeclarativeClient(@ConfigProperty(name = "api.dbaas.address") String dbaasUrl, ObjectMapper objectMapper) {
         var client = M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
         client.newBuilder()
                 .addInterceptor(new RequestIdInterceptor())
