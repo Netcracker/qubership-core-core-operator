@@ -85,12 +85,12 @@ public class Configuration {
     @Produces
     @ApplicationScoped
     public List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifier(
-            @ConfigProperty(name = "quarkus.rest-client.maas-client.url") String maasUrl,
-            @ConfigProperty(name = "quarkus.rest-client.dbaas-client.url") String dbaasUrl,
+            @ConfigProperty(name = "maas.internal.address") String maasUrl,
+            @ConfigProperty(name = "api.dbaas.address") String dbaasUrl,
             @ConfigProperty(name = "cloud.composite.structure.xaas.receivers") List<String> receiversConfig,
             @ConfigProperty(name = "cloud.composite.structure.xaas.read-timeout") Long readTimeout,
             @ConfigProperty(name = "cloud.composite.structure.xaas.connect-timeout") Long connectTimeout,
-            RestClientCustomizer restClientCustomizer
+            ObjectMapper objectMapper
     ) {
         List<String> receiversConfigLowercase = receiversConfig.stream().map(String::toLowerCase).toList();
         return Map.of(
@@ -101,14 +101,19 @@ public class Configuration {
                 .stream()
                 // take only XaaSes enlisted in receivers config compare ignoring case
                 .filter(xaas -> receiversConfigLowercase.contains(xaas.getKey().toLowerCase()))
-                .map(xaas -> new CompositeStructureUpdateNotifier(xaas.getKey(), // construct notifier instances for matched XaaSes
-                                restClientCustomizer.customize(new QuarkusRestClientBuilder()
-                                                .baseUri(URI.create(xaas.getValue()))
-                                                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
-                                                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS))
-                                        .build(CompositeClient.class)
-                        )
-                )
+                .map(xaas -> {
+                    OkHttpClient baseClient = DBAAS_NAME.equalsIgnoreCase(xaas.getKey())
+                            ? M2MClientFactory.getDbaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue())
+                            : M2MClientFactory.getMaasOkHttpClient(() -> M2MManager.getInstance().getToken().getTokenValue());
+
+                    var okHttpClient = baseClient.newBuilder()
+                            .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                            .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                            .build();
+
+                    CompositeClient client = new CompositeClient(okHttpClient, objectMapper, xaas.getValue());
+                    return new CompositeStructureUpdateNotifier(xaas.getKey(), client);
+                })
                 .toList();
     }
 

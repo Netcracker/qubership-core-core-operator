@@ -15,12 +15,15 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.runtime.RawExtension;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
-import jakarta.ws.rs.core.Response;
+import okhttp3.MediaType;
+import okhttp3.Protocol;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-
 import java.util.concurrent.CompletableFuture;
 
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
@@ -40,7 +43,8 @@ class CompositeReconcilerTest {
     @Test
     void reconcileInternal() throws Exception {
         CompositeClient compositeClient = mock(CompositeClient.class);
-        when(compositeClient.structures(any())).thenReturn(Response.noContent().build());
+        when(compositeClient.structures(any())).thenReturn(buildOkHttpResponse(204, null));
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 mock(KubernetesClient.class),
                 mock(CompositeConsulUpdater.class),
@@ -77,7 +81,8 @@ class CompositeReconcilerTest {
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
         CompositeClient compositeClient = mock(CompositeClient.class);
-        when(compositeClient.structures(any())).thenReturn(Response.noContent().build());
+        when(compositeClient.structures(any())).thenReturn(buildOkHttpResponse(204, null));
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 new NoopCompositeConsulUpdaterImpl(),
@@ -112,6 +117,7 @@ class CompositeReconcilerTest {
         NamespaceableResource namespaceableResource = mock(NamespaceableResource.class);
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 mock(CompositeConsulUpdater.class),
@@ -140,6 +146,7 @@ class CompositeReconcilerTest {
 
         CompositeConsulUpdater compositeConsulUpdater = mock(CompositeConsulUpdater.class);
         doThrow(new RuntimeException("test-exception")).when(compositeConsulUpdater).updateCompositeStructureInConsul(any());
+
         CompositeReconciler compositeReconciler = new CompositeReconciler(
                 kubernetesClient,
                 compositeConsulUpdater,
@@ -200,12 +207,7 @@ class CompositeReconcilerTest {
     @Test
     void reconcileInternal_MaaSUpdate_fail_response() throws Exception {
         CompositeClient compositeClient = mock(CompositeClient.class);
-        when(compositeClient.structures(any()))
-                .thenReturn(Response
-                        .status(500)
-                        .entity("test error")
-                        .build()
-                );
+        when(compositeClient.structures(any())).thenReturn(buildOkHttpResponse(500, "test error"));
 
         KubernetesClient kubernetesClient = mock(KubernetesClient.class);
         NamespaceableResource namespaceableResource = mock(NamespaceableResource.class);
@@ -234,21 +236,17 @@ class CompositeReconcilerTest {
     @Test
     void reconcileInternal_MaaSUpdate_fail_tmf_response() throws Exception {
         CompositeClient compositeClient = mock(CompositeClient.class);
-        when(compositeClient.structures(any()))
-                .thenReturn(Response
-                        .serverError()
-                        .entity("""
-                                    {
-                                      "id": "47f79f65-82a0-4401-8321-d31abb3bd07d",
-                                      "status": "500",
-                                      "code": "MAAS-0600",
-                                      "message": "test message",
-                                      "reason": "test reason",
-                                      "@type": "NC.TMFErrorResponse.v1.0"
-                                    }
-                                """)
-                        .build()
-                );
+        String jsonError = """
+                {
+                  "id": "47f79f65-82a0-4401-8321-d31abb3bd07d",
+                  "status": "500",
+                  "code": "MAAS-0600",
+                  "message": "test message",
+                  "reason": "test reason",
+                  "@type": "NC.TMFErrorResponse.v1.0"
+                }
+                """;
+        when(compositeClient.structures(any())).thenReturn(buildOkHttpResponse(500, jsonError));
 
         KubernetesClient kubernetesClient = mock(KubernetesClient.class);
         NamespaceableResource namespaceableResource = mock(NamespaceableResource.class);
@@ -298,5 +296,21 @@ class CompositeReconcilerTest {
 
     private CoreCondition findConditionByType(Composite composite, String type) {
         return composite.getStatus().getConditions().get(type);
+    }
+
+    private Response buildOkHttpResponse(int code, String bodyText) {
+        Response.Builder builder = new Response.Builder()
+                .request(new Request.Builder().url("http://localhost").build())
+                .protocol(Protocol.HTTP_1_1)
+                .message("Mocked Response")
+                .code(code);
+
+        if (bodyText != null) {
+            builder.body(ResponseBody.create(bodyText, MediaType.parse("application/json")));
+        } else {
+            builder.body(ResponseBody.create("", MediaType.parse("application/json")));
+        }
+
+        return builder.build();
     }
 }

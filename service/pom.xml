@@ -71,11 +71,6 @@
             <artifactId>quarkus-resteasy-client-jackson</artifactId>
         </dependency>
         <dependency>
-            <groupId>net.ltgt.jaxrs</groupId>
-            <artifactId>resteasy-client-okhttp3</artifactId>
-            <version>1.1</version>
-        </dependency>
-        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
         </dependency>
