@@ -1,7 +1,7 @@
 package com.netcracker.core.declarative.client.reconciler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.core.declarative.client.rest.DeclarativeRequest;
-import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
 import com.netcracker.core.declarative.resources.base.CoreResource;
 import com.netcracker.core.declarative.resources.base.Phase;
 import com.netcracker.core.declarative.resources.mesh.Mesh;
@@ -11,7 +11,7 @@ import io.fabric8.kubernetes.api.model.runtime.RawExtension;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.NamespaceableResource;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.core.Response;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -24,7 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class MeshReconcilerTest {
-    MeshClientV3 meshClientV3 = mock(MeshClientV3.class);
+    OkHttpClient meshHttpClient = mock(OkHttpClient.class);
 
     @Test
     void declarativeRequestBuilderTest() {
@@ -52,7 +52,7 @@ class MeshReconcilerTest {
 
     @Test
     void reconcileInternalSuccessTest() throws Exception {
-        when(meshClientV3.applyConfig(any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(meshHttpClient, 200, null);
         MeshReconciler c = getReconciler();
 
         Mesh mesh = new Mesh();
@@ -69,7 +69,7 @@ class MeshReconcilerTest {
 
     @Test
     void reconcileInternalErrorTest() throws Exception {
-        when(meshClientV3.applyConfig(any())).thenReturn(Response.serverError().build());
+        OkHttpMocks.stub(meshHttpClient, 500, null);
         MeshReconciler c = getReconciler();
 
         Mesh mesh = new Mesh();
@@ -88,7 +88,7 @@ class MeshReconcilerTest {
         NamespaceableResource namespaceableResource = mock(NamespaceableResource.class);
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
-        MeshReconciler meshReconciler = new MeshReconciler(kubernetesClient, meshClientV3);
+        MeshReconciler meshReconciler = new MeshReconciler(kubernetesClient, meshHttpClient, "http://control-plane:8080", new ObjectMapper());
         MeshReconciler c = spy(meshReconciler);
         doNothing().when(c).fireEvent(any(), any(), any());
 

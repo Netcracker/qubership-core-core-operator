@@ -19,12 +19,20 @@ import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -45,8 +53,10 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String SESSION_ID_LABEL_KEY = "deployment.netcracker.com/sessionId";
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
+    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     protected DeclarativeKubernetesClient client;
-    protected DeclarativeClient declarativeClient;
+    protected OkHttpClient httpClient;
+    protected String baseUrl;
     protected RetryResourceCache retryResourceCache;
     @Inject
     protected ObjectMapper objectMapper;
@@ -63,9 +73,10 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         this.retryResourceCache = new RetryResourceCache();
     }
 
-    public CoreReconciler(KubernetesClient client, DeclarativeClient declarativeClient) {
+    public CoreReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl) {
         this.client = new DeclarativeKubernetesClient(client);
-        this.declarativeClient = declarativeClient;
+        this.httpClient = httpClient;
+        this.baseUrl = baseUrl;
         this.retryResourceCache = new RetryResourceCache();
     }
 
@@ -128,17 +139,59 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
     protected UpdateControl<T> reconcileInternal(T t) throws Exception {
         log.debug("Reconcile Resource {}", t);
-        DeclarativeApiResponse response = declarativeClient.apply(getApiVersion(), declarativeRequestBuilder(t));
-        return switch (response.getStatusCode()) {
-            case SC_ACCEPTED -> {
-                log.debug("Received status={} from microservice, rescheduling reconciliation to wait for dependencies resolution", SC_ACCEPTED);
-                buildCondition(t, response.readEntity(DeclarativeResponse.class));
-                yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
-            }
-            case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
-            default ->
-                    throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.getStatusCode()), 500);
-        };
+        Request request = buildApplyRequest(getApiVersion(), declarativeRequestBuilder(t));
+        try (Response response = httpClient.newCall(request).execute()) {
+            return switch (response.code()) {
+                case SC_ACCEPTED -> {
+                    log.debug("Received status={} from microservice, rescheduling reconciliation to wait for dependencies resolution", SC_ACCEPTED);
+                    buildCondition(t, readEntity(response, DeclarativeResponse.class));
+                    yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
+                }
+                case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
+                default ->
+                        throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.code()), 500);
+            };
+        }
+    }
+
+    protected Request buildApplyRequest(String apiVersion, DeclarativeRequest request) throws IOException {
+        HttpUrl url = declarativeBaseUrl(apiVersion)
+                .addPathSegment("apply")
+                .build();
+        RequestBody body = RequestBody.create(objectMapper.writeValueAsString(request), JSON);
+        return new Request.Builder().url(url).post(body).build();
+    }
+
+    protected Request buildStatusRequest(String apiVersion, String trackingId) {
+        HttpUrl url = declarativeBaseUrl(apiVersion)
+                .addPathSegment("operation")
+                .addPathSegment(trackingId)
+                .addPathSegment("status")
+                .build();
+        return new Request.Builder().url(url).get().build();
+    }
+
+    private HttpUrl.Builder declarativeBaseUrl(String apiVersion) {
+        HttpUrl parsed = HttpUrl.parse(baseUrl);
+        if (parsed == null) {
+            throw new IllegalArgumentException("Invalid base URL for declarative client: " + baseUrl);
+        }
+        return parsed.newBuilder()
+                .addPathSegment("api")
+                .addPathSegment("declarations")
+                .addPathSegment("v" + apiVersion);
+    }
+
+    protected <R> R readEntity(Response response, Class<R> type) throws IOException {
+        ResponseBody body = response.body();
+        if (body == null) {
+            return null;
+        }
+        byte[] bytes = body.bytes();
+        if (bytes.length == 0) {
+            return null;
+        }
+        return objectMapper.readValue(bytes, type);
     }
 
     protected UpdateControl<T> reconcilePooling(T t) throws Exception {
