@@ -7,9 +7,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import com.netcracker.cloud.core.error.rest.tmf.DefaultTmfErrorResponseConverter;
 import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Set;
 
 import static jakarta.servlet.http.HttpServletResponse.SC_NO_CONTENT;
@@ -24,19 +26,24 @@ public class CompositeStructureUpdateNotifier {
     private final CompositeClient compositeClient;
 
     public void notify(String compositeId, Set<String> compositeMembers) {
-        CompositeClient.Request compositeStructure = new CompositeClient.Request(compositeId, compositeMembers);
+        CompositeClient.CompositeRequest compositeStructure = new CompositeClient.CompositeRequest(compositeId, compositeMembers);
         log.info("Send request to {} with composite structure {}", xaasName, compositeStructure);
-        try (jakarta.ws.rs.core.Response response = compositeClient.structures(compositeStructure)) {
-            if (response.getStatusInfo().getStatusCode() == SC_NO_CONTENT) {
+
+        try (Response response = compositeClient.structures(compositeStructure)) {
+            int statusCode = response.code();
+            if (statusCode == SC_NO_CONTENT) {
                 log.info("Successfully updated {} for '{}'", xaasName, compositeStructure);
             } else {
+                String responseBody = response.body() != null ? response.body().string() : "";
                 try {
-                    TmfErrorResponse tmfErrorResponse = mapper.readValue(response.getEntity().toString(), TmfErrorResponse.class);
+                    TmfErrorResponse tmfErrorResponse = mapper.readValue(responseBody, TmfErrorResponse.class);
                     throw new DefaultTmfErrorResponseConverter().buildErrorCodeException(tmfErrorResponse);
                 } catch (JsonProcessingException e) {
-                    throw new RuntimeException(String.format("Unexpected response received from XaaS: %d, %s", response.getStatusInfo().getStatusCode(), response.getEntity()));
+                    throw new RuntimeException(String.format("Unexpected response received from XaaS: %d, %s", statusCode, responseBody));
                 }
             }
+        } catch (IOException e) {
+            throw new RuntimeException("Communication failure with XaaS: " + xaasName, e);
         }
     }
 }

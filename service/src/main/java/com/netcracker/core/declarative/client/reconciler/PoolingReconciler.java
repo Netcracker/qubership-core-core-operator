@@ -8,7 +8,6 @@ import com.netcracker.core.declarative.resources.base.Phase;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import jakarta.ws.rs.NotFoundException;
-import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,20 +28,19 @@ public abstract class PoolingReconciler<T extends CoreResource> extends CoreReco
     protected UpdateControl<T> reconcilePooling(T resource) throws Exception {
         log.debug("Async reconcile for resource {}", resource);
         String trackingID = resource.getStatus().getTrackingId();
-        try (Response response = declarativeClient.getStatus(getApiVersion(), trackingID)) {
-            if (response.getStatusInfo().getStatusCode() == SC_NOT_FOUND) {
-                log.error("Failed to find entity with TrackingID={} on remote", trackingID);
-                throw new NotFoundException(String.format("Process with TrackingID=%s not found", trackingID));
-            }
-            DeclarativeResponse responseBody = response.readEntity(DeclarativeResponse.class);
-            responseBody.getConditions().stream()
-                    .filter(condition -> !condition.state().equals(ProcessStatus.NOT_STARTED))
-                    .forEach(condition -> buildCondition(resource, condition));
-            return switch (responseBody.getStatus()) {
-                case COMPLETED -> setPhaseAndReschedule(resource, Phase.UPDATED_PHASE);
-                case FAILED -> setPhaseAndReschedule(resource, Phase.INVALID_CONFIGURATION);
-                default -> setPhaseAndReschedule(resource, Phase.WAITING_FOR_DEPENDS);
-            };
+        var response = declarativeClient.getStatus(getApiVersion(), trackingID);
+        if (response.getStatusCode() == SC_NOT_FOUND) {
+            log.error("Failed to find entity with TrackingID={} on remote", trackingID);
+            throw new NotFoundException(String.format("Process with TrackingID=%s not found", trackingID));
         }
+        DeclarativeResponse responseBody = response.readEntity(DeclarativeResponse.class);
+        responseBody.getConditions().stream()
+                .filter(condition -> !condition.state().equals(ProcessStatus.NOT_STARTED))
+                .forEach(condition -> buildCondition(resource, condition));
+        return switch (responseBody.getStatus()) {
+            case COMPLETED -> setPhaseAndReschedule(resource, Phase.UPDATED_PHASE);
+            case FAILED -> setPhaseAndReschedule(resource, Phase.INVALID_CONFIGURATION);
+            default -> setPhaseAndReschedule(resource, Phase.WAITING_FOR_DEPENDS);
+        };
     }
 }

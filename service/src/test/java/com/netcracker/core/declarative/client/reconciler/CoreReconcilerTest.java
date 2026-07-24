@@ -22,6 +22,7 @@ import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.slf4j.MDC;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.*;
@@ -38,6 +39,8 @@ import static org.mockito.Mockito.*;
 @QuarkusTest
 class CoreReconcilerTest {
     private static final String SESSION_ID_LABEL = "deployment.netcracker.com/sessionId";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @InjectSpy
     MaaSReconciler maaSReconciler;
 
@@ -47,23 +50,17 @@ class CoreReconcilerTest {
 
     @Test
     void reconcileInternalTest() throws Exception {
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted(List.of(
-                "test-tracking-id",
-                "test-message",
-                "test-details"
-        )).build());
-
         Maas maas = new Maas();
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
         ObjectMeta maasMetadata = new ObjectMeta();
         maasMetadata.setName("maas1");
         maas.setMetadata(maasMetadata);
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(200, null, null));
         UpdateControl<Maas> maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertTrue(maasUpdateControl.getResource().get().getStatus().isUpdated());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.serverError().build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(500, null, null));
         assertThrows(ServerErrorException.class, () -> maaSReconciler.reconcileInternal(maas));
 
         DeclarativeResponse resp = new DeclarativeResponse();
@@ -73,13 +70,15 @@ class CoreReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.IN_PROGRESS, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        DeclarativeApiResponse acceptedResponse = DeclarativeApiResponse.of(202, resp, OBJECT_MAPPER);
+        DeclarativeApiResponse okResponse = DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER);
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(acceptedResponse);
         maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(2000L, (long) maasUpdateControl.getScheduleDelay().get());
 
         //test retry timeout
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(acceptedResponse);
         maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(4000L, (long) maasUpdateControl.getScheduleDelay().get());
@@ -90,23 +89,23 @@ class CoreReconcilerTest {
         ObjectMeta anotherMaasMetadata = new ObjectMeta();
         anotherMaasMetadata.setName("maas2");
         anotherMaas.setMetadata(anotherMaasMetadata);
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(acceptedResponse);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(acceptedResponse);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(2000L, (long) maasUpdateControl.getScheduleDelay().get());
 
         //test retry timeout set to 1s
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().entity(resp).build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(okResponse);
         maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertEquals(UPDATED_PHASE, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().entity(resp).build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(okResponse);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(UPDATED_PHASE, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
@@ -195,7 +194,7 @@ class CoreReconcilerTest {
 
         //2.
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(200, null, null));
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
@@ -218,7 +217,7 @@ class CoreReconcilerTest {
 
         maas.getStatus().setTrackingId("test-tracking-id");
 
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.OK).entity(resp).build());
+        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
         maas.getStatus().setPhase(WAITING_FOR_DEPENDS);
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
@@ -231,7 +230,7 @@ class CoreReconcilerTest {
 
         //4.
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(200, null, null));
         maas.getStatus().setPhase(INVALID_CONFIGURATION);
 
         updateControl = maaSReconciler.reconcile(maas, null);
@@ -241,7 +240,7 @@ class CoreReconcilerTest {
 
         //5.
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(200, null, null));
         maas.getStatus().setPhase(UPDATED_PHASE);
 
         updateControl = maaSReconciler.reconcile(maas, null);
@@ -269,7 +268,7 @@ class CoreReconcilerTest {
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(200, null, null));
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 

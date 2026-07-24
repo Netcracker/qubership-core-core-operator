@@ -1,9 +1,7 @@
 package com.netcracker.core.declarative.client.reconciler;
 
-import com.netcracker.core.declarative.client.rest.Condition;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
-import com.netcracker.core.declarative.client.rest.DeclarativeResponse;
-import com.netcracker.core.declarative.client.rest.ProcessStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netcracker.core.declarative.client.rest.*;
 import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
 import com.netcracker.core.declarative.resources.base.Phase;
 import com.netcracker.core.declarative.resources.maas.Maas;
@@ -12,7 +10,6 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -24,6 +21,8 @@ import static org.mockito.Mockito.when;
 
 @QuarkusTest
 class PoolingReconcilerTest {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @Inject
     MaaSReconciler maaSReconciler;
 
@@ -46,7 +45,7 @@ class PoolingReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.COMPLETED, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.OK).entity(resp).build());
+        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
 
         maaSReconciler.reconcilePooling(maas);
         assertEquals(Phase.UPDATED_PHASE, maas.getStatus().getPhase());
@@ -68,7 +67,7 @@ class PoolingReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.FAILED, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.OK).entity(resp).build());
+        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
 
         maaSReconciler.reconcilePooling(maas);
         assertEquals(Phase.INVALID_CONFIGURATION, maas.getStatus().getPhase());
@@ -90,7 +89,7 @@ class PoolingReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.IN_PROGRESS, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.OK).entity(resp).build());
+        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
 
         maaSReconciler.reconcilePooling(maas);
         assertEquals(Phase.WAITING_FOR_DEPENDS, maas.getStatus().getPhase());

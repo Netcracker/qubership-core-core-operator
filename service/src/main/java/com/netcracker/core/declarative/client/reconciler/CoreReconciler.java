@@ -19,7 +19,6 @@ import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
@@ -129,18 +128,17 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
     protected UpdateControl<T> reconcileInternal(T t) throws Exception {
         log.debug("Reconcile Resource {}", t);
-        try (Response response = declarativeClient.apply(getApiVersion(), declarativeRequestBuilder(t))) {
-            return switch (response.getStatusInfo().getStatusCode()) {
-                case SC_ACCEPTED -> {
-                    log.debug("Received status={} from microservice, rescheduling reconciliation to wait for dependencies resolution", SC_ACCEPTED);
-                    buildCondition(t, response.readEntity(DeclarativeResponse.class));
-                    yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
-                }
-                case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
-                default ->
-                        throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.getStatusInfo().getStatusCode()), 500);
-            };
-        }
+        DeclarativeApiResponse response = declarativeClient.apply(getApiVersion(), declarativeRequestBuilder(t));
+        return switch (response.getStatusCode()) {
+            case SC_ACCEPTED -> {
+                log.debug("Received status={} from microservice, rescheduling reconciliation to wait for dependencies resolution", SC_ACCEPTED);
+                buildCondition(t, response.readEntity(DeclarativeResponse.class));
+                yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
+            }
+            case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
+            default ->
+                    throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.getStatusCode()), 500);
+        };
     }
 
     protected UpdateControl<T> reconcilePooling(T t) throws Exception {
