@@ -1,5 +1,6 @@
 package com.netcracker.core.declarative.client.reconciler;
 
+import com.netcracker.core.declarative.client.rest.DeclarativeApiResponse;
 import com.netcracker.core.declarative.client.rest.DeclarativeClient;
 import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
 import com.netcracker.core.declarative.resources.dbaas.Dbaas;
@@ -11,10 +12,8 @@ import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,20 +34,14 @@ class DbaaSReconcilerTest {
 
     @Test
     void reconcileInternal() throws Exception {
-        when(dbaasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted(List.of(
-                "test-tracking-id",
-                "test-message",
-                "test-details"
-        )).build());
-
         Dbaas dbaas = new Dbaas();
         dbaas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
 
-        when(dbaasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        when(dbaasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(200, null, null));
         UpdateControl<Dbaas> dbaasUpdateControl = dbaasReconciler.reconcileInternal(dbaas);
         assertTrue(dbaasUpdateControl.getResource().get().getStatus().isUpdated());
 
-        when(dbaasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.serverError().build());
+        when(dbaasDeclarativeClient.apply(eq("1"), any())).thenReturn(DeclarativeApiResponse.of(500, null, null));
         assertThrows(ServerErrorException.class, () -> dbaasReconciler.reconcileInternal(dbaas));
     }
 
@@ -60,7 +53,7 @@ class DbaaSReconcilerTest {
         declarativeStatus.setTrackingId("test-tracking-id");
         dbaas.setStatus(declarativeStatus);
 
-        when(dbaasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.NOT_FOUND).build());
+        when(dbaasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(404, null, null));
         assertThrows(NotFoundException.class, () -> dbaasReconciler.reconcilePooling(dbaas));
     }
 }
