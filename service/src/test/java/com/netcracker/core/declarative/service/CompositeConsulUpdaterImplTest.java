@@ -1,17 +1,12 @@
 package com.netcracker.core.declarative.service;
 
-import com.netcracker.core.declarative.client.rest.CompositeClient;
 import io.vertx.core.Future;
 import io.vertx.ext.consul.*;
-import okhttp3.Protocol;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -242,7 +237,7 @@ class CompositeConsulUpdaterImplTest {
     }
 
     @Test
-    void getCompositeMembers() throws ExecutionException, InterruptedException, IOException {
+    void getCompositeMembers() throws ExecutionException, InterruptedException {
         String basePath = "composite/first/structure";
 
         when(consulClient.getKeys(basePath))
@@ -251,16 +246,6 @@ class CompositeConsulUpdaterImplTest {
                         basePath + "/second" + "/compositeRole",
                         basePath + "/third" + "/compositeRole"
                 )));
-
-        CompositeClient compositeClient = mock(CompositeClient.class);
-        when(compositeClient.structures(any())).thenReturn(
-                new Response.Builder()
-                        .request(new Request.Builder().url("http://localhost").build())
-                        .protocol(Protocol.HTTP_1_1)
-                        .code(204)
-                        .message("No Content")
-                        .build()
-        );
 
         CompositeConsulUpdater compositeConsulUpdater = new CompositeConsulUpdaterImpl("first", consulClientFactory, mock(TokenStorage.class));
         Set<String> compositeMembers = compositeConsulUpdater.getCompositeMembers("first");

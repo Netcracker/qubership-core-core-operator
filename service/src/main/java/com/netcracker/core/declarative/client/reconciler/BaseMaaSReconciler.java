@@ -1,8 +1,8 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import okhttp3.OkHttpClient;
 import org.apache.commons.lang.StringUtils;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
 import com.netcracker.core.declarative.client.rest.DeclarativeRequest;
 import com.netcracker.core.declarative.resources.maas.Maas;
 
@@ -13,8 +13,8 @@ public abstract class BaseMaaSReconciler<T extends Maas> extends PoolingReconcil
     public static final String CLASSIFIER_PROPERTY = "classifier";
     public static final String CLASSIFIER_NAME_PROPERTY = "name";
 
-    public BaseMaaSReconciler(KubernetesClient client, DeclarativeClient maasDeclarativeClient) {
-        super(client, maasDeclarativeClient);
+    public BaseMaaSReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl) {
+        super(client, httpClient, baseUrl);
     }
 
     protected BaseMaaSReconciler() {

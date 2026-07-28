@@ -5,9 +5,11 @@ import io.javaoperatorsdk.operator.api.config.informer.Informer;
 import io.javaoperatorsdk.operator.api.reconciler.Constants;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.processing.retry.GradualRetry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
+import okhttp3.OkHttpClient;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import com.netcracker.core.declarative.resources.mesh.Mesh;
 
 @ControllerConfiguration(informer = @Informer(namespaces = Constants.WATCH_CURRENT_NAMESPACE), name = "MeshReconciler")
@@ -16,7 +18,10 @@ import com.netcracker.core.declarative.resources.mesh.Mesh;
 public class MeshReconciler extends BaseMeshReconciler<Mesh> {
 
     @Inject
-    public MeshReconciler(KubernetesClient client, @Named("meshDeclarativeClient") MeshClientV3 meshDeclarativeClient) {
-        super(client, meshDeclarativeClient);
+    public MeshReconciler(KubernetesClient client,
+                          @Named("meshHttpClient") OkHttpClient httpClient,
+                          @ConfigProperty(name = "mesh.internal.address") String meshUrl,
+                          ObjectMapper objectMapper) {
+        super(client, httpClient, meshUrl, objectMapper);
     }
 }

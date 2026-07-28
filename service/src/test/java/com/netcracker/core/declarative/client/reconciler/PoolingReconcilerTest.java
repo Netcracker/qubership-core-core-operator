@@ -10,6 +10,7 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -17,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
 
 @QuarkusTest
 class PoolingReconcilerTest {
@@ -27,8 +27,8 @@ class PoolingReconcilerTest {
     MaaSReconciler maaSReconciler;
 
     @InjectMock
-    @Named("maasDeclarativeClient")
-    DeclarativeClient maasDeclarativeClient;
+    @Named("maasHttpClient")
+    OkHttpClient maasHttpClient;
 
     @Test
     void reconcilePoolingFoundByTrackingId() throws Exception {
@@ -45,7 +45,7 @@ class PoolingReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.COMPLETED, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
+        OkHttpMocks.stub(maasHttpClient, 200, OBJECT_MAPPER.writeValueAsString(resp));
 
         maaSReconciler.reconcilePooling(maas);
         assertEquals(Phase.UPDATED_PHASE, maas.getStatus().getPhase());
@@ -67,7 +67,7 @@ class PoolingReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.FAILED, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
+        OkHttpMocks.stub(maasHttpClient, 200, OBJECT_MAPPER.writeValueAsString(resp));
 
         maaSReconciler.reconcilePooling(maas);
         assertEquals(Phase.INVALID_CONFIGURATION, maas.getStatus().getPhase());
@@ -89,7 +89,7 @@ class PoolingReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.IN_PROGRESS, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(DeclarativeApiResponse.of(200, resp, OBJECT_MAPPER));
+        OkHttpMocks.stub(maasHttpClient, 200, OBJECT_MAPPER.writeValueAsString(resp));
 
         maaSReconciler.reconcilePooling(maas);
         assertEquals(Phase.WAITING_FOR_DEPENDS, maas.getStatus().getPhase());

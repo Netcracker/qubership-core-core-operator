@@ -1,11 +1,16 @@
 package com.netcracker.core.declarative.client.reconciler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.core.Response;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import com.netcracker.core.declarative.client.rest.DeclarativeRequest;
-import com.netcracker.core.declarative.client.rest.deprecated.MeshClientV3;
 import com.netcracker.core.declarative.resources.mesh.Mesh;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,11 +23,11 @@ import static com.netcracker.core.declarative.resources.base.Phase.UPDATED_PHASE
 
 public abstract class BaseMeshReconciler<T extends Mesh> extends CoreReconciler<T> {
     private static final Logger log = LoggerFactory.getLogger(BaseMeshReconciler.class);
-    private MeshClientV3 meshClient;
+    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    public BaseMeshReconciler(KubernetesClient client, MeshClientV3 meshDeclarativeClient) {
-        super(client);
-        this.meshClient = meshDeclarativeClient;
+    public BaseMeshReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl, ObjectMapper objectMapper) {
+        super(client, httpClient, baseUrl);
+        this.objectMapper = objectMapper;
     }
 
     protected BaseMeshReconciler() {
@@ -32,12 +37,19 @@ public abstract class BaseMeshReconciler<T extends Mesh> extends CoreReconciler<
     public UpdateControl<T> reconcileInternal(T mesh) throws Exception {
         log.debug("Reconciling Mesh entity {}", mesh);
         DeclarativeRequest request = declarativeRequestBuilder(mesh);
-        try (Response response = meshClient.applyConfig(request)) {
-            if (response.getStatusInfo().getStatusCode() == SC_OK) {
+        HttpUrl url = HttpUrl.get(baseUrl).newBuilder()
+                .addPathSegment("api")
+                .addPathSegment("v3")
+                .addPathSegment("apply-config")
+                .build();
+        RequestBody body = RequestBody.create(objectMapper.writeValueAsString(request), JSON);
+        Request httpRequest = new Request.Builder().url(url).post(body).build();
+        try (Response response = httpClient.newCall(httpRequest).execute()) {
+            if (response.code() == SC_OK) {
                 return setPhaseAndReschedule(mesh, UPDATED_PHASE);
             } else {
-                log.error("Unexpected status={} received from Mesh", response.getStatusInfo().getStatusCode());
-                throw new ServerErrorException(String.format("Unexpected status=%s received from Mesh", response.getStatusInfo().getStatusCode()), 500);
+                log.error("Unexpected status={} received from Mesh", response.code());
+                throw new ServerErrorException(String.format("Unexpected status=%s received from Mesh", response.code()), 500);
             }
         }
     }
