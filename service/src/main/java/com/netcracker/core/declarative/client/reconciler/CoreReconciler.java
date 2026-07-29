@@ -67,15 +67,15 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     protected String deploymentSessionId;
 
     @SuppressWarnings("unused")
-    public CoreReconciler() {
+    protected CoreReconciler() {
     }
 
-    public CoreReconciler(KubernetesClient client) {
+    protected CoreReconciler(KubernetesClient client) {
         this.client = new DeclarativeKubernetesClient(client);
         this.retryResourceCache = new RetryResourceCache();
     }
 
-    public CoreReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl) {
+    protected CoreReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl) {
         this.client = new DeclarativeKubernetesClient(client);
         this.httpClient = httpClient;
         this.baseUrl = baseUrl;

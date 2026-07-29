@@ -25,12 +25,13 @@ public abstract class BaseMeshReconciler<T extends Mesh> extends CoreReconciler<
     private static final Logger log = LoggerFactory.getLogger(BaseMeshReconciler.class);
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    public BaseMeshReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl, ObjectMapper objectMapper) {
-        super(client, httpClient, baseUrl);
-        this.objectMapper = objectMapper;
+    @SuppressWarnings("unused")
+    protected BaseMeshReconciler() {
     }
 
-    protected BaseMeshReconciler() {
+    protected BaseMeshReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl, ObjectMapper objectMapper) {
+        super(client, httpClient, baseUrl);
+        this.objectMapper = objectMapper;
     }
 
     @Override

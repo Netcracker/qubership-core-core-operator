@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
 import com.netcracker.core.declarative.service.*;
 
-import java.net.MalformedURLException;
 import java.util.List;
 import java.util.Map;
 
@@ -19,7 +18,7 @@ import static org.mockito.Mockito.when;
 class ConfigurationTest {
 
     @Test
-    void compositeConsulUpdater_consul_enabled() throws MalformedURLException {
+    void compositeConsulUpdater_consul_enabled() {
         Configuration configuration = new Configuration();
         Instance<TokenStorage> tokenStorageInstance = mock(Instance.class);
         TokenStorage tokenStorage = mock(TokenStorage.class);
@@ -34,7 +33,7 @@ class ConfigurationTest {
     }
 
     @Test
-    void compositeConsulUpdater_consul_disabled() throws MalformedURLException {
+    void compositeConsulUpdater_consul_disabled() {
         Configuration configuration = new Configuration();
         CompositeConsulUpdater compositeConsulUpdater = configuration.compositeConsulUpdater(
                 "test-namespace",
@@ -113,6 +112,6 @@ class ConfigurationTest {
                 new ObjectMapper()
         );
         assertEquals(1, compositeStructureUpdateNotifiers.size());
-        assertEquals("KeyManager", compositeStructureUpdateNotifiers.get(0).getXaasName());
+        assertEquals("KeyManager", compositeStructureUpdateNotifiers.getFirst().getXaasName());
     }
 }
