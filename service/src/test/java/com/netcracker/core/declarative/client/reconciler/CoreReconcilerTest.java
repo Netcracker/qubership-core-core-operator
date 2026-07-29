@@ -28,13 +28,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.*;
 
+import static com.netcracker.cloud.framework.contexts.strategies.AbstractXRequestIdStrategy.MDC_REQUEST_ID_KEY;
 import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.client.rest.ProcessStatus.COMPLETED;
 import static com.netcracker.core.declarative.resources.base.Phase.*;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @QuarkusTest
@@ -186,10 +186,10 @@ class CoreReconcilerTest {
         //1.
         UpdateControl<Maas> updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATING, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATING.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         //2.
@@ -198,10 +198,10 @@ class CoreReconcilerTest {
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATED_PHASE, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATED_PHASE.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         //3.
@@ -222,10 +222,10 @@ class CoreReconcilerTest {
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(WAITING_FOR_DEPENDS, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(WAITING_FOR_DEPENDS.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(2000L, updateControl.getScheduleDelay().get());
 
         //4.
@@ -235,7 +235,7 @@ class CoreReconcilerTest {
 
         updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertTrue(updateControl.getScheduleDelay().isEmpty());
 
         //5.
@@ -245,7 +245,7 @@ class CoreReconcilerTest {
 
         updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertTrue(updateControl.getScheduleDelay().isEmpty());
     }
 
@@ -261,10 +261,10 @@ class CoreReconcilerTest {
 
         UpdateControl<Maas> updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATING, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATING.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         MDC.clear();
@@ -272,10 +272,10 @@ class CoreReconcilerTest {
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATED_PHASE, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATED_PHASE.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         maas = updateControl.getResource().get();
@@ -365,7 +365,7 @@ class CoreReconcilerTest {
         ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, labels, null, "maasName", "namespace", null, "0", "", "uid");
         maas.setMetadata(meta);
         maaSReconciler.reconcile(maas, null);
-        assertEquals("requestId", MDC.get(X_REQUEST_ID));
+        assertEquals("requestId", MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals("sessionId", MDC.get(SESSION_ID_KEY));
         assertEquals("maasName", MDC.get(RESOURCE_NAME));
         assertEquals("MaaS", MDC.get(KIND));

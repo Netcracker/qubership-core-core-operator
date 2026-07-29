@@ -2,6 +2,7 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import com.netcracker.cloud.headerstracking.filters.context.RequestIdContext;
 import com.netcracker.core.declarative.client.cache.RetryResourceCache;
 import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
 import com.netcracker.core.declarative.client.rest.*;
@@ -37,6 +38,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.netcracker.cloud.framework.contexts.strategies.AbstractXRequestIdStrategy.MDC_REQUEST_ID_KEY;
 import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.resources.base.Phase.*;
 import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
@@ -80,6 +82,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         this.retryResourceCache = new RetryResourceCache();
     }
 
+    @Override
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
         setupLogFormat(resource.getStatus(), resource);
         //if CR validation fails there's no need for further processing
@@ -120,8 +123,9 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         try {
             return switch (phase) {
                 case UNKNOWN -> {
-                    MDC.put(X_REQUEST_ID, UUID.randomUUID().toString());
-                    resource.getStatus().setRequestId(MDC.get(X_REQUEST_ID));
+                    String requestId = UUID.randomUUID().toString();
+                    RequestIdContext.set(requestId);
+                    resource.getStatus().setRequestId(requestId);
                     yield setPhaseAndReschedule(resource, UPDATING);
                 }
                 case UPDATING, BACKING_OFF -> reconcileInternal(resource);
@@ -445,7 +449,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
     private void setupLogFormat(DeclarativeStatus status, T resource) {
         if (status.getRequestId() != null) {
-            MDC.put(X_REQUEST_ID, status.getRequestId());
+            MDC.put(MDC_REQUEST_ID_KEY, status.getRequestId());
             MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
         }
         MDC.put(RESOURCE_NAME, resource.getMetadata().getName() == null ? "-" : resource.getMetadata().getName());

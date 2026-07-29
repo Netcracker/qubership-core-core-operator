@@ -115,6 +115,10 @@
             <groupId>com.netcracker.cloud.security.core.utils</groupId>
             <artifactId>k8s-utils</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.netcracker.cloud.quarkus</groupId>
+            <artifactId>framework-contexts</artifactId>
+        </dependency>
         <!-- Test -->
         <dependency>
             <groupId>io.javaoperatorsdk</groupId>
