@@ -18,9 +18,11 @@ import okhttp3.OkHttpClient;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
@@ -28,6 +30,16 @@ import static com.netcracker.core.declarative.client.reconciler.CompositeReconci
 
 @Slf4j
 public class Configuration {
+    private static final Map<String, Function<Supplier<String>, OkHttpClient>> XAAS_CLIENT_FACTORIES = Map.of(
+            MAAS_NAME.toLowerCase(), M2MClientFactory::getMaasOkHttpClient,
+            DBAAS_NAME.toLowerCase(), M2MClientFactory::getDbaasOkHttpClient);
+
+    @ConfigProperty(name = "cloud.http-client.connect-timeout")
+    Duration clientConnectTimeout;
+
+    @ConfigProperty(name = "cloud.http-client.read-timeout")
+    Duration clientReadTimeout;
+
     @Produces
     @Named("maasHttpClient")
     @ApplicationScoped
@@ -67,56 +79,55 @@ public class Configuration {
         return () -> M2MManager.getInstance().getToken().getTokenValue();
     }
 
-    private static OkHttpClient configure(OkHttpClient base) {
+    private OkHttpClient configure(OkHttpClient base) {
         return base.newBuilder()
                 .addInterceptor(new RequestIdInterceptor())
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(clientConnectTimeout)
+                .readTimeout(clientReadTimeout)
                 .build();
     }
 
     @Produces
     @ApplicationScoped
     public List<CompositeStructureUpdateNotifier> compositeStructureUpdateNotifier(
-            @ConfigProperty(name = "maas.internal.address") String maasUrl,
-            @ConfigProperty(name = "api.dbaas.address") String dbaasUrl,
+            @ConfigProperty(name = "cloud.composite.structure.xaas.address") Map<String, String> xaasAddresses,
             @ConfigProperty(name = "cloud.composite.structure.xaas.receivers") List<String> receiversConfig,
             @ConfigProperty(name = "cloud.composite.structure.xaas.read-timeout") Long readTimeout,
             @ConfigProperty(name = "cloud.composite.structure.xaas.connect-timeout") Long connectTimeout,
             ObjectMapper objectMapper
     ) {
         List<String> receiversConfigLowercase = receiversConfig.stream().map(String::toLowerCase).toList();
-        return Map.of(
-                        MAAS_NAME, maasUrl,
-                        DBAAS_NAME, dbaasUrl
-                )
-                .entrySet()
+        return xaasAddresses.entrySet()
                 .stream()
                 // take only XaaSes enlisted in receivers config compare ignoring case
                 .filter(xaas -> receiversConfigLowercase.contains(xaas.getKey().toLowerCase()))
-                .map(xaas -> {
-                    OkHttpClient baseClient = DBAAS_NAME.equalsIgnoreCase(xaas.getKey())
-                            ? M2MClientFactory.getDbaasOkHttpClient(m2mToken())
-                            : M2MClientFactory.getMaasOkHttpClient(m2mToken());
-
-                    OkHttpClient okHttpClient = baseClient.newBuilder()
-                            .addInterceptor(new RequestIdInterceptor())
-                            .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
-                            .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
-                            .build();
-
-                    return new CompositeStructureUpdateNotifier(xaas.getKey(), okHttpClient, xaas.getValue(), objectMapper);
-                })
+                .map(xaas -> new CompositeStructureUpdateNotifier(
+                        xaas.getKey(),
+                        compositeStructureClient(xaas.getKey(), readTimeout, connectTimeout),
+                        xaas.getValue(),
+                        objectMapper))
                 .toList();
+    }
+
+    /**
+     * XaaSes reachable only through their own agent need a dedicated client, everything else talks plain m2m.
+     */
+    private static OkHttpClient compositeStructureClient(String xaasName, long readTimeout, long connectTimeout) {
+        return XAAS_CLIENT_FACTORIES
+                .getOrDefault(xaasName.toLowerCase(), M2MClientFactory::getM2mOkHttpClient)
+                .apply(m2mToken())
+                .newBuilder()
+                .addInterceptor(new RequestIdInterceptor())
+                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                .build();
     }
 
     @Produces
     @ApplicationScoped
     public CompositeConsulUpdater compositeConsulUpdater(
             @ConfigProperty(name = "cloud.microservice.namespace") String namespace,
-            @ConfigProperty(name = "quarkus.consul-source-config.agent.url") URL consulUrl,
             @ConfigProperty(name = "quarkus.consul-source-config.agent.enabled") boolean consulEnabled,
-            @ConfigProperty(name = "cloud.composite.structure.consul.update-timeout") Long timeout,
             ConsulClientFactory consulClientFactory,
             Instance<TokenStorage> consulTokenStorage) { // TokenStorage in Singleton scope. Lazy inject.
         if (!consulEnabled) {

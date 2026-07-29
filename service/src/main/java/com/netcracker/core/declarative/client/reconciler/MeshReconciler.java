@@ -20,7 +20,7 @@ public class MeshReconciler extends BaseMeshReconciler<Mesh> {
     @Inject
     public MeshReconciler(KubernetesClient client,
                           @Named("meshHttpClient") OkHttpClient httpClient,
-                          @ConfigProperty(name = "mesh.internal.address") String meshUrl,
+                          @ConfigProperty(name = "apigateway.control-plane.url") String meshUrl,
                           ObjectMapper objectMapper) {
         super(client, httpClient, meshUrl, objectMapper);
     }
