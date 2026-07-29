@@ -50,15 +50,19 @@ public class CompositeStructureUpdateNotifier {
                 log.info("Successfully updated {} for '{}'", xaasName, compositeStructure);
             } else {
                 String responseBody = response.body() != null ? response.body().string() : "";
-                try {
-                    TmfErrorResponse tmfErrorResponse = mapper.readValue(responseBody, TmfErrorResponse.class);
-                    throw new DefaultTmfErrorResponseConverter().buildErrorCodeException(tmfErrorResponse);
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(String.format("Unexpected response received from XaaS: %d, %s", statusCode, responseBody));
-                }
+                throw buildErrorResponseException(statusCode, responseBody);
             }
         } catch (IOException e) {
             throw new RuntimeException("Communication failure with XaaS: " + xaasName, e);
+        }
+    }
+
+    private RuntimeException buildErrorResponseException(int statusCode, String responseBody) {
+        try {
+            TmfErrorResponse tmfErrorResponse = mapper.readValue(responseBody, TmfErrorResponse.class);
+            return new DefaultTmfErrorResponseConverter().buildErrorCodeException(tmfErrorResponse);
+        } catch (JsonProcessingException e) {
+            return new RuntimeException(String.format("Unexpected response received from XaaS: %d, %s", statusCode, responseBody));
         }
     }
 
