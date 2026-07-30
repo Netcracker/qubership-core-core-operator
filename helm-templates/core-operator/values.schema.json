@@ -634,10 +634,24 @@
       "title": "The API_DBAAS_ADDRESS schema",
       "description": "Hostname Dbaas Server.",
       "internal": true,
-      "default": null,
+      "default": "http://dbaas-aggregator.dbaas:8080",
       "examples": [
         "http://dbaas-aggregator.dbaas:8080"
       ]
+    },
+    "MAAS_INTERNAL_ADDRESS": {
+      "$id": "#/properties/MAAS_INTERNAL_ADDRESS",
+      "type": "string",
+      "title": "The MAAS_INTERNAL_ADDRESS schema",
+      "description": "Address of MaaS-service inside cloud.",
+      "internal": true
+    },
+    "CONTROL_PLANE_INTERNAL_ADDRESS": {
+      "$id": "#/properties/CONTROL_PLANE_INTERNAL_ADDRESS",
+      "type": "string",
+      "title": "The CONTROL_PLANE_INTERNAL_ADDRESS schema",
+      "description": "Address of control-plane inside cloud.",
+      "internal": true
     }
   },
   "additionalProperties": true

@@ -9,7 +9,6 @@ import com.netcracker.core.declarative.client.rest.*;
 import com.netcracker.core.declarative.client.rest.Condition;
 import com.netcracker.core.declarative.resources.base.CoreCondition;
 import com.netcracker.core.declarative.resources.base.CoreResource;
-import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
 import com.netcracker.core.declarative.resources.base.Phase;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -38,7 +37,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-import static com.netcracker.cloud.framework.contexts.strategies.AbstractXRequestIdStrategy.MDC_REQUEST_ID_KEY;
 import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.resources.base.Phase.*;
 import static io.quarkus.runtime.util.StringUtil.isNullOrEmpty;
@@ -84,7 +82,8 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
     @Override
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
-        setupLogFormat(resource.getStatus(), resource);
+        setupRequestId(resource);
+        setupLogFormat(resource);
         //if CR validation fails there's no need for further processing
         if (!isResourceValid(resource)) {
             log.error("resource failed validation, one of the mandatory fields is missing");
@@ -122,12 +121,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         log.debug("reconciling phase={}", phase);
         try {
             return switch (phase) {
-                case UNKNOWN -> {
-                    String requestId = UUID.randomUUID().toString();
-                    RequestIdContext.set(requestId);
-                    resource.getStatus().setRequestId(requestId);
-                    yield setPhaseAndReschedule(resource, UPDATING);
-                }
+                case UNKNOWN -> setPhaseAndReschedule(resource, UPDATING);
                 case UPDATING, BACKING_OFF -> reconcileInternal(resource);
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
                 case UPDATED_PHASE -> onReconciliationCompleted(resource);
@@ -429,7 +423,11 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     private String getSessionIdLabel(T resource) {
-        String result = resource.getMetadata().getLabels().get(SESSION_ID_LABEL_KEY);
+        Map<String, String> labels = resource.getMetadata().getLabels();
+        if (labels == null) {
+            return "";
+        }
+        String result = labels.get(SESSION_ID_LABEL_KEY);
         if (result == null) {
             return "";
         }
@@ -447,11 +445,17 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 && resource.getSpec() != null;
     }
 
-    private void setupLogFormat(DeclarativeStatus status, T resource) {
-        if (status.getRequestId() != null) {
-            MDC.put(MDC_REQUEST_ID_KEY, status.getRequestId());
-            MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
+    private void setupRequestId(T resource) {
+        String requestId = resource.getStatus().getRequestId();
+        if (requestId == null) {
+            requestId = UUID.randomUUID().toString();
+            resource.getStatus().setRequestId(requestId);
         }
+        RequestIdContext.set(requestId);
+    }
+
+    private void setupLogFormat(T resource) {
+        MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
         MDC.put(RESOURCE_NAME, resource.getMetadata().getName() == null ? "-" : resource.getMetadata().getName());
         MDC.put(KIND, resource.getKind() == null ? "-" : resource.getKind());
         MDC.put(SUB_KIND, resource.getSubKind() == null ? "-" : resource.getSubKind());
