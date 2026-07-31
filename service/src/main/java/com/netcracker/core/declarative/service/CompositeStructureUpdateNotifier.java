@@ -2,14 +2,19 @@ package com.netcracker.core.declarative.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netcracker.core.declarative.client.rest.CompositeClient;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import com.netcracker.cloud.core.error.rest.tmf.DefaultTmfErrorResponseConverter;
 import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Set;
 
 import static jakarta.servlet.http.HttpServletResponse.SC_NO_CONTENT;
@@ -17,26 +22,52 @@ import static jakarta.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 @AllArgsConstructor
 public class CompositeStructureUpdateNotifier {
     private static final Logger log = LoggerFactory.getLogger(CompositeStructureUpdateNotifier.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     @Getter
     private final String xaasName;
-    private final CompositeClient compositeClient;
+    private final OkHttpClient client;
+    private final String baseUrl;
+    private final ObjectMapper mapper;
 
     public void notify(String compositeId, Set<String> compositeMembers) {
-        CompositeClient.Request compositeStructure = new CompositeClient.Request(compositeId, compositeMembers);
+        CompositeRequest compositeStructure = new CompositeRequest(compositeId, compositeMembers);
         log.info("Send request to {} with composite structure {}", xaasName, compositeStructure);
-        try (jakarta.ws.rs.core.Response response = compositeClient.structures(compositeStructure)) {
-            if (response.getStatusInfo().getStatusCode() == SC_NO_CONTENT) {
+
+        Request request;
+        try {
+            request = new Request.Builder()
+                    .url(baseUrl + "/api/composite/v1/structures")
+                    .post(RequestBody.create(mapper.writeValueAsString(compositeStructure), JSON))
+                    .build();
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize composite structure for XaaS: " + xaasName, e);
+        }
+
+        try (Response response = client.newCall(request).execute()) {
+            int statusCode = response.code();
+            if (statusCode == SC_NO_CONTENT) {
                 log.info("Successfully updated {} for '{}'", xaasName, compositeStructure);
             } else {
-                try {
-                    TmfErrorResponse tmfErrorResponse = mapper.readValue(response.getEntity().toString(), TmfErrorResponse.class);
-                    throw new DefaultTmfErrorResponseConverter().buildErrorCodeException(tmfErrorResponse);
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(String.format("Unexpected response received from XaaS: %d, %s", response.getStatusInfo().getStatusCode(), response.getEntity()));
-                }
+                String responseBody = response.body() != null ? response.body().string() : "";
+                throw buildErrorResponseException(statusCode, responseBody);
             }
+        } catch (IOException e) {
+            throw new RuntimeException("Communication failure with XaaS: " + xaasName, e);
         }
+    }
+
+    private RuntimeException buildErrorResponseException(int statusCode, String responseBody) {
+        try {
+            TmfErrorResponse tmfErrorResponse = mapper.readValue(responseBody, TmfErrorResponse.class);
+            return new DefaultTmfErrorResponseConverter().buildErrorCodeException(tmfErrorResponse);
+        } catch (JsonProcessingException e) {
+            return new RuntimeException(String.format("Unexpected response received from XaaS: %d, %s", statusCode, responseBody));
+        }
+    }
+
+    public record CompositeRequest(
+            String id,
+            Set<String> namespaces) {
     }
 }

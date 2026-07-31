@@ -1,13 +1,13 @@
 package com.netcracker.core.declarative.client.reconciler;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
+import okhttp3.OkHttpClient;
 import com.netcracker.core.declarative.resources.dbaas.Dbaas;
 
 public abstract class BaseDbaasReconciler<T extends Dbaas> extends PoolingReconciler<T> {
 
-    public BaseDbaasReconciler(KubernetesClient client, DeclarativeClient dbaasDeclarativeClient) {
-        super(client, dbaasDeclarativeClient);
+    public BaseDbaasReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl) {
+        super(client, httpClient, baseUrl);
     }
 
     protected BaseDbaasReconciler() {

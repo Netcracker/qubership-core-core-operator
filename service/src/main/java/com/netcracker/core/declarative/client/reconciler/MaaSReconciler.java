@@ -7,7 +7,8 @@ import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.processing.retry.GradualRetry;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
+import okhttp3.OkHttpClient;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import com.netcracker.core.declarative.resources.maas.Maas;
 
 @ControllerConfiguration(informer = @Informer(namespaces = Constants.WATCH_CURRENT_NAMESPACE), name = "MaaSReconciler")
@@ -17,7 +18,9 @@ public class MaaSReconciler extends BaseMaaSReconciler<Maas> {
 
     @Inject
     @SuppressWarnings("unused")
-    public MaaSReconciler(KubernetesClient client, @Named("maasDeclarativeClient") DeclarativeClient maasDeclarativeClient) {
-        super(client, maasDeclarativeClient);
+    public MaaSReconciler(KubernetesClient client,
+                          @Named("maasHttpClient") OkHttpClient httpClient,
+                          @ConfigProperty(name = "maas.internal.address") String maasUrl) {
+        super(client, httpClient, maasUrl);
     }
 }

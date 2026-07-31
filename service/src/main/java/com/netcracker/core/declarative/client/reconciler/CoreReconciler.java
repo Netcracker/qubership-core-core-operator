@@ -2,13 +2,13 @@ package com.netcracker.core.declarative.client.reconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.core.error.rest.tmf.TmfErrorResponse;
+import com.netcracker.cloud.headerstracking.filters.context.RequestIdContext;
 import com.netcracker.core.declarative.client.cache.RetryResourceCache;
 import com.netcracker.core.declarative.client.k8s.DeclarativeKubernetesClient;
 import com.netcracker.core.declarative.client.rest.*;
 import com.netcracker.core.declarative.client.rest.Condition;
 import com.netcracker.core.declarative.resources.base.CoreCondition;
 import com.netcracker.core.declarative.resources.base.CoreResource;
-import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
 import com.netcracker.core.declarative.resources.base.Phase;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -19,13 +19,20 @@ import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Response;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -46,8 +53,10 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     private static final String SESSION_ID_LABEL_KEY = "deployment.netcracker.com/sessionId";
 
     private static final Logger log = LoggerFactory.getLogger(CoreReconciler.class);
+    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     protected DeclarativeKubernetesClient client;
-    protected DeclarativeClient declarativeClient;
+    protected OkHttpClient httpClient;
+    protected String baseUrl;
     protected RetryResourceCache retryResourceCache;
     @Inject
     protected ObjectMapper objectMapper;
@@ -56,22 +65,25 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     protected String deploymentSessionId;
 
     @SuppressWarnings("unused")
-    public CoreReconciler() {
+    protected CoreReconciler() {
     }
 
-    public CoreReconciler(KubernetesClient client) {
+    protected CoreReconciler(KubernetesClient client) {
         this.client = new DeclarativeKubernetesClient(client);
         this.retryResourceCache = new RetryResourceCache();
     }
 
-    public CoreReconciler(KubernetesClient client, DeclarativeClient declarativeClient) {
+    protected CoreReconciler(KubernetesClient client, OkHttpClient httpClient, String baseUrl) {
         this.client = new DeclarativeKubernetesClient(client);
-        this.declarativeClient = declarativeClient;
+        this.httpClient = httpClient;
+        this.baseUrl = baseUrl;
         this.retryResourceCache = new RetryResourceCache();
     }
 
+    @Override
     public UpdateControl<T> reconcile(T resource, Context<T> context) throws Exception {
-        setupLogFormat(resource.getStatus(), resource);
+        setupRequestId(resource);
+        setupLogFormat(resource);
         //if CR validation fails there's no need for further processing
         if (!isResourceValid(resource)) {
             log.error("resource failed validation, one of the mandatory fields is missing");
@@ -109,11 +121,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         log.debug("reconciling phase={}", phase);
         try {
             return switch (phase) {
-                case UNKNOWN -> {
-                    MDC.put(X_REQUEST_ID, UUID.randomUUID().toString());
-                    resource.getStatus().setRequestId(MDC.get(X_REQUEST_ID));
-                    yield setPhaseAndReschedule(resource, UPDATING);
-                }
+                case UNKNOWN -> setPhaseAndReschedule(resource, UPDATING);
                 case UPDATING, BACKING_OFF -> reconcileInternal(resource);
                 case WAITING_FOR_DEPENDS -> reconcilePooling(resource);
                 case UPDATED_PHASE -> onReconciliationCompleted(resource);
@@ -129,18 +137,59 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
 
     protected UpdateControl<T> reconcileInternal(T t) throws Exception {
         log.debug("Reconcile Resource {}", t);
-        try (Response response = declarativeClient.apply(getApiVersion(), declarativeRequestBuilder(t))) {
-            return switch (response.getStatusInfo().getStatusCode()) {
+        Request request = buildApplyRequest(getApiVersion(), declarativeRequestBuilder(t));
+        try (Response response = httpClient.newCall(request).execute()) {
+            return switch (response.code()) {
                 case SC_ACCEPTED -> {
                     log.debug("Received status={} from microservice, rescheduling reconciliation to wait for dependencies resolution", SC_ACCEPTED);
-                    buildCondition(t, response.readEntity(DeclarativeResponse.class));
+                    buildCondition(t, readEntity(response, DeclarativeResponse.class));
                     yield setPhaseAndReschedule(t, WAITING_FOR_DEPENDS);
                 }
                 case SC_OK -> setPhaseAndReschedule(t, UPDATED_PHASE);
                 default ->
-                        throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.getStatusInfo().getStatusCode()), 500);
+                        throw new ServerErrorException(String.format("Unexpected status=%s received from Microservice", response.code()), 500);
             };
         }
+    }
+
+    protected Request buildApplyRequest(String apiVersion, DeclarativeRequest request) throws IOException {
+        HttpUrl url = declarativeBaseUrl(apiVersion)
+                .addPathSegment("apply")
+                .build();
+        RequestBody body = RequestBody.create(objectMapper.writeValueAsString(request), JSON);
+        return new Request.Builder().url(url).post(body).build();
+    }
+
+    protected Request buildStatusRequest(String apiVersion, String trackingId) {
+        HttpUrl url = declarativeBaseUrl(apiVersion)
+                .addPathSegment("operation")
+                .addPathSegment(trackingId)
+                .addPathSegment("status")
+                .build();
+        return new Request.Builder().url(url).get().build();
+    }
+
+    private HttpUrl.Builder declarativeBaseUrl(String apiVersion) {
+        HttpUrl parsed = HttpUrl.parse(baseUrl);
+        if (parsed == null) {
+            throw new IllegalArgumentException("Invalid base URL for declarative client: " + baseUrl);
+        }
+        return parsed.newBuilder()
+                .addPathSegment("api")
+                .addPathSegment("declarations")
+                .addPathSegment("v" + apiVersion);
+    }
+
+    protected <R> R readEntity(Response response, Class<R> type) throws IOException {
+        ResponseBody body = response.body();
+        if (body == null) {
+            return null;
+        }
+        byte[] bytes = body.bytes();
+        if (bytes.length == 0) {
+            return null;
+        }
+        return objectMapper.readValue(bytes, type);
     }
 
     protected UpdateControl<T> reconcilePooling(T t) throws Exception {
@@ -374,7 +423,11 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     }
 
     private String getSessionIdLabel(T resource) {
-        String result = resource.getMetadata().getLabels().get(SESSION_ID_LABEL_KEY);
+        Map<String, String> labels = resource.getMetadata().getLabels();
+        if (labels == null) {
+            return "";
+        }
+        String result = labels.get(SESSION_ID_LABEL_KEY);
         if (result == null) {
             return "";
         }
@@ -392,11 +445,17 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
                 && resource.getSpec() != null;
     }
 
-    private void setupLogFormat(DeclarativeStatus status, T resource) {
-        if (status.getRequestId() != null) {
-            MDC.put(X_REQUEST_ID, status.getRequestId());
-            MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
+    private void setupRequestId(T resource) {
+        String requestId = resource.getStatus().getRequestId();
+        if (requestId == null) {
+            requestId = UUID.randomUUID().toString();
+            resource.getStatus().setRequestId(requestId);
         }
+        RequestIdContext.set(requestId);
+    }
+
+    private void setupLogFormat(T resource) {
+        MDC.put(SESSION_ID_KEY, getSessionIdLabel(resource));
         MDC.put(RESOURCE_NAME, resource.getMetadata().getName() == null ? "-" : resource.getMetadata().getName());
         MDC.put(KIND, resource.getKind() == null ? "-" : resource.getKind());
         MDC.put(SUB_KIND, resource.getSubKind() == null ? "-" : resource.getSubKind());

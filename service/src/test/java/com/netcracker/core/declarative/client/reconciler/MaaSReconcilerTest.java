@@ -1,6 +1,5 @@
 package com.netcracker.core.declarative.client.reconciler;
 
-import com.netcracker.core.declarative.client.rest.DeclarativeClient;
 import com.netcracker.core.declarative.client.rest.DeclarativeRequest;
 import com.netcracker.core.declarative.resources.base.DeclarativeStatus;
 import com.netcracker.core.declarative.resources.maas.Maas;
@@ -12,17 +11,13 @@ import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.core.Response;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 @QuarkusTest
 class MaaSReconcilerTest {
@@ -31,25 +26,19 @@ class MaaSReconcilerTest {
     MaaSReconciler maaSReconciler;
 
     @InjectMock
-    @Named("maasDeclarativeClient")
-    DeclarativeClient maasDeclarativeClient;
+    @Named("maasHttpClient")
+    OkHttpClient maasHttpClient;
 
     @Test
     void reconcileInternal() throws Exception {
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted(List.of(
-                "test-tracking-id",
-                "test-message",
-                "test-details"
-        )).build());
-
         Maas maas = new Maas();
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(maasHttpClient, 200, null);
         UpdateControl<Maas> maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertTrue(maasUpdateControl.getResource().get().getStatus().isUpdated());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.serverError().build());
+        OkHttpMocks.stub(maasHttpClient, 500, null);
         assertThrows(ServerErrorException.class, () -> maaSReconciler.reconcileInternal(maas));
     }
 
@@ -61,7 +50,7 @@ class MaaSReconcilerTest {
         declarativeStatus.setTrackingId("test-tracking-id");
         maas.setStatus(declarativeStatus);
 
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.NOT_FOUND).build());
+        OkHttpMocks.stub(maasHttpClient, 404, null);
         assertThrows(NotFoundException.class, () -> maaSReconciler.reconcilePooling(maas));
     }
 

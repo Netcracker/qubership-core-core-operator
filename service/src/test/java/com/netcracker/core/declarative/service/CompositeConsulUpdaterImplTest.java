@@ -1,6 +1,5 @@
 package com.netcracker.core.declarative.service;
 
-import com.netcracker.core.declarative.client.rest.CompositeClient;
 import io.vertx.core.Future;
 import io.vertx.ext.consul.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -247,9 +246,6 @@ class CompositeConsulUpdaterImplTest {
                         basePath + "/second" + "/compositeRole",
                         basePath + "/third" + "/compositeRole"
                 )));
-
-        CompositeClient compositeClient = mock(CompositeClient.class);
-        when(compositeClient.structures(any())).thenReturn(jakarta.ws.rs.core.Response.noContent().build());
 
         CompositeConsulUpdater compositeConsulUpdater = new CompositeConsulUpdaterImpl("first", consulClientFactory, mock(TokenStorage.class));
         Set<String> compositeMembers = compositeConsulUpdater.getCompositeMembers("first");

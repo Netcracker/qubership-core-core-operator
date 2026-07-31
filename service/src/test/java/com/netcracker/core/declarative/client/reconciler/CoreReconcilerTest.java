@@ -16,54 +16,52 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
 import jakarta.inject.Named;
+import okhttp3.OkHttpClient;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.slf4j.MDC;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.*;
 
+import static com.netcracker.cloud.framework.contexts.strategies.AbstractXRequestIdStrategy.MDC_REQUEST_ID_KEY;
 import static com.netcracker.core.declarative.client.constants.Constants.*;
 import static com.netcracker.core.declarative.client.rest.ProcessStatus.COMPLETED;
 import static com.netcracker.core.declarative.resources.base.Phase.*;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @QuarkusTest
 class CoreReconcilerTest {
     private static final String SESSION_ID_LABEL = "deployment.netcracker.com/sessionId";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @InjectSpy
     MaaSReconciler maaSReconciler;
 
     @InjectMock
-    @Named("maasDeclarativeClient")
-    DeclarativeClient maasDeclarativeClient;
+    @Named("maasHttpClient")
+    OkHttpClient maasHttpClient;
 
     @Test
     void reconcileInternalTest() throws Exception {
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted(List.of(
-                "test-tracking-id",
-                "test-message",
-                "test-details"
-        )).build());
-
         Maas maas = new Maas();
         maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
         ObjectMeta maasMetadata = new ObjectMeta();
         maasMetadata.setName("maas1");
         maas.setMetadata(maasMetadata);
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(maasHttpClient, 200, null);
         UpdateControl<Maas> maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertTrue(maasUpdateControl.getResource().get().getStatus().isUpdated());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.serverError().build());
+        OkHttpMocks.stub(maasHttpClient, 500, null);
         assertThrows(ServerErrorException.class, () -> maaSReconciler.reconcileInternal(maas));
 
         DeclarativeResponse resp = new DeclarativeResponse();
@@ -73,13 +71,14 @@ class CoreReconcilerTest {
         Condition condition = new Condition("conditionType", ProcessStatus.IN_PROGRESS, "reason", "message");
         conditions.add(condition);
         resp.setConditions(conditions);
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        String respJson = OBJECT_MAPPER.writeValueAsString(resp);
+        OkHttpMocks.stub(maasHttpClient, 202, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(2000L, (long) maasUpdateControl.getScheduleDelay().get());
 
         //test retry timeout
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        OkHttpMocks.stub(maasHttpClient, 202, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(4000L, (long) maasUpdateControl.getScheduleDelay().get());
@@ -90,23 +89,23 @@ class CoreReconcilerTest {
         ObjectMeta anotherMaasMetadata = new ObjectMeta();
         anotherMaasMetadata.setName("maas2");
         anotherMaas.setMetadata(anotherMaasMetadata);
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        OkHttpMocks.stub(maasHttpClient, 202, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.accepted().entity(resp).build());
+        OkHttpMocks.stub(maasHttpClient, 202, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(2000L, (long) maasUpdateControl.getScheduleDelay().get());
 
         //test retry timeout set to 1s
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().entity(resp).build());
+        OkHttpMocks.stub(maasHttpClient, 200, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(maas);
         assertEquals(UPDATED_PHASE, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
 
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().entity(resp).build());
+        OkHttpMocks.stub(maasHttpClient, 200, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(UPDATED_PHASE, maasUpdateControl.getResource().get().getStatus().getPhase());
         assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
@@ -187,22 +186,22 @@ class CoreReconcilerTest {
         //1.
         UpdateControl<Maas> updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATING, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATING.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         //2.
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(maasHttpClient, 200, null);
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATED_PHASE, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATED_PHASE.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         //3.
@@ -218,35 +217,35 @@ class CoreReconcilerTest {
 
         maas.getStatus().setTrackingId("test-tracking-id");
 
-        when(maasDeclarativeClient.getStatus("1", "test-tracking-id")).thenReturn(Response.status(Response.Status.OK).entity(resp).build());
+        OkHttpMocks.stub(maasHttpClient, 200, OBJECT_MAPPER.writeValueAsString(resp));
         maas.getStatus().setPhase(WAITING_FOR_DEPENDS);
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(WAITING_FOR_DEPENDS, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(WAITING_FOR_DEPENDS.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(2000L, updateControl.getScheduleDelay().get());
 
         //4.
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(maasHttpClient, 200, null);
         maas.getStatus().setPhase(INVALID_CONFIGURATION);
 
         updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertTrue(updateControl.getScheduleDelay().isEmpty());
 
         //5.
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(maasHttpClient, 200, null);
         maas.getStatus().setPhase(UPDATED_PHASE);
 
         updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertTrue(updateControl.getScheduleDelay().isEmpty());
     }
 
@@ -262,21 +261,21 @@ class CoreReconcilerTest {
 
         UpdateControl<Maas> updateControl = maaSReconciler.reconcile(maas, null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATING, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATING.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         MDC.clear();
-        when(maasDeclarativeClient.apply(eq("1"), any())).thenReturn(Response.ok().build());
+        OkHttpMocks.stub(maasHttpClient, 200, null);
 
         updateControl = maaSReconciler.reconcile(updateControl.getResource().get(), null);
 
-        assertNotNull(MDC.get(X_REQUEST_ID));
+        assertNotNull(MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals(UPDATED_PHASE, updateControl.getResource().get().getStatus().getPhase());
         assertEquals(UPDATED_PHASE.getValue(), MDC.get(PHASE));
-        assertEquals(MDC.get(X_REQUEST_ID), updateControl.getResource().get().getStatus().getRequestId());
+        assertEquals(MDC.get(MDC_REQUEST_ID_KEY), updateControl.getResource().get().getStatus().getRequestId());
         assertEquals(1000L, updateControl.getScheduleDelay().get());
 
         maas = updateControl.getResource().get();
@@ -366,7 +365,7 @@ class CoreReconcilerTest {
         ObjectMeta meta = new ObjectMeta(null, "", 0L, "", null, "generatedName", 0L, labels, null, "maasName", "namespace", null, "0", "", "uid");
         maas.setMetadata(meta);
         maaSReconciler.reconcile(maas, null);
-        assertEquals("requestId", MDC.get(X_REQUEST_ID));
+        assertEquals("requestId", MDC.get(MDC_REQUEST_ID_KEY));
         assertEquals("sessionId", MDC.get(SESSION_ID_KEY));
         assertEquals("maasName", MDC.get(RESOURCE_NAME));
         assertEquals("MaaS", MDC.get(KIND));
@@ -519,7 +518,7 @@ class CoreReconcilerTest {
         NamespaceableResource namespaceableResource = mock(NamespaceableResource.class);
         when(namespaceableResource.updateStatus()).thenReturn(mock(CoreResource.class));
         when(kubernetesClient.resource(any(HasMetadata.class))).thenReturn(namespaceableResource);
-        MaaSReconciler rec = new MaaSReconciler(kubernetesClient, maasDeclarativeClient);
+        MaaSReconciler rec = new MaaSReconciler(kubernetesClient, maasHttpClient, "http://maas");
 
         //1.
         IllegalStateException e = new IllegalStateException("Some exception");
