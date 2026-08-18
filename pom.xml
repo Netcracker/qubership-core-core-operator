@@ -30,7 +30,7 @@
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>core-quarkus-external-bom</artifactId>
-                <version>1.0.8</version>
+                <version>1.1.1-fix-remove-new-agent-properties-SNAPSHOT</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
