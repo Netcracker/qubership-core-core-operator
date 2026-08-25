@@ -148,14 +148,11 @@ public class Configuration {
     }
 
     private OkHttpClient xaasClient(String xaasName) {
-        String name = xaasName.toLowerCase();
-        if (name.equals(MAAS_NAME.toLowerCase())) {
-            return maasClient();
-        }
-        if (name.equals(DBAAS_NAME.toLowerCase())) {
-            return dbaasClient();
-        }
-        return m2mClient();
+        return switch (xaasName) {
+            case String name when name.equalsIgnoreCase(MAAS_NAME) -> maasClient();
+            case String name when name.equalsIgnoreCase(DBAAS_NAME) -> dbaasClient();
+            default -> m2mClient();
+        };
     }
 
     @Produces
