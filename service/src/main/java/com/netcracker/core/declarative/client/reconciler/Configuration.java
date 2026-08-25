@@ -37,7 +37,7 @@ public class Configuration {
     @ConfigProperty(name = "cloud.http-client.read-timeout")
     Duration clientReadTimeout;
 
-    @ConfigProperty(name = "api.dbaas.agent.address")
+    @ConfigProperty(name = "dbaas.agent.address")
     String dbaasAgentUrl;
 
     @ConfigProperty(name = "maas.agent.address")
