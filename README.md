@@ -51,7 +51,7 @@ If you want to learn more about building native executables, please consult http
 
 ## Related Guides
 
-- RESTEasy Reactive's REST Client ([guide](https://quarkus.io/guides/rest-client-reactive)): Call REST services reactively
+- RESTEasy Reactive's REST Client ([guide](https://quarkus.io/guides/resteasy)): Call REST services reactively
 - Picocli ([guide](https://quarkus.io/guides/picocli)): Develop command line applications with Picocli
 - Kubernetes Client ([guide](https://quarkus.io/guides/kubernetes-client)): Interact with Kubernetes and develop Kubernetes Operators
 
