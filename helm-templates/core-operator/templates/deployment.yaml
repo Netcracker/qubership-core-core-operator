@@ -143,8 +143,8 @@ spec:
                     value: '{{ .Values.LOG_LEVEL }}'
                 -   name: DEPLOYMENT_SESSION_ID
                     value: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-                -   name: KUBERNETES_M2M_ENABLED
-                    value: '{{ .Values.KUBERNETES_M2M_ENABLED }}'
+                -   name: M2M_AUTH_MODE
+                    value: '{{ .Values.M2M_AUTH_MODE }}'
                 -   name: CONTROL_PLANE_INTERNAL_ADDRESS
                     value: '{{ .Values.CONTROL_PLANE_INTERNAL_ADDRESS }}'
                 -   name: API_DBAAS_ADDRESS
