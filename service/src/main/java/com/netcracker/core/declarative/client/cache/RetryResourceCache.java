@@ -2,52 +2,87 @@ package com.netcracker.core.declarative.client.cache;
 
 import com.netcracker.core.declarative.resources.base.Phase;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
-import io.javaoperatorsdk.operator.processing.event.source.UpdatableCache;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 
+import static com.netcracker.core.declarative.client.constants.Constants.CR_POOLING_MAX_INTERVAL;
+import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_ATTEMPTS;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_INTERVAL;
 
-public class RetryResourceCache implements UpdatableCache<Integer> {
-    private final Map<ResourceID, Integer> retryCache = new HashMap<>();
+/**
+ * Keeps track of how many times a CR has been processed without reaching a terminal phase and
+ * calculates the delay before the next reconciliation.
+ */
+public class RetryResourceCache {
+    private final Map<ResourceID, RetryState> retryCache = new ConcurrentHashMap<>();
 
-    @Override
-    public Integer remove(ResourceID key) {
-        return retryCache.remove(key);
+    /**
+     * Drops the attempt counters of a resource, so that its next reconciliation starts from the
+     * shortest delay. Called once the resource reaches a terminal phase.
+     */
+    public void reset(ResourceID resourceID) {
+        retryCache.remove(resourceID);
     }
 
-    @Override
-    public void put(ResourceID key, Integer retries) {
-        retryCache.put(key, retries);
-    }
-
-    @Override
-    public Optional<Integer> get(ResourceID resourceID) {
-        return Optional.ofNullable(retryCache.get(resourceID));
-    }
-
-    @Override
-    public Stream<ResourceID> keys() {
-        return retryCache.keySet().stream();
-    }
-
-    @Override
-    public Stream<Integer> list(Predicate<Integer> predicate) {
-        return retryCache.values().stream().filter(predicate);
+    /**
+     * Tells whether a resource has used up its apply attempts. Only failed apply attempts are
+     * counted, so a resource waiting for its dependencies is never given up on.
+     */
+    public boolean isRetryLimitReached(ResourceID resourceID) {
+        RetryState state = retryCache.get(resourceID);
+        return state != null && previousAttempts(state.applyAttempts()) >= CR_RETRY_MAX_ATTEMPTS;
     }
 
     public int getNextDelay(Phase phase, ResourceID resourceID) {
-        Optional<Integer> retries = get(resourceID);
-        if (retries.isPresent() && (phase == Phase.WAITING_FOR_DEPENDS || phase == Phase.BACKING_OFF)) {
-            retryCache.put(resourceID, retries.get() + 1);
-            return (int) Math.min(2 * Math.pow(2, (double) retries.get() / 2), CR_RETRY_MAX_INTERVAL);
-        } else {
-            put(resourceID, 1);
+        return switch (phase) {
+            case BACKING_OFF -> {
+                RetryState state = update(resourceID, RetryState::withApplyAttempt);
+                yield delay(previousAttempts(state.applyAttempts()), CR_RETRY_MAX_INTERVAL);
+            }
+            case WAITING_FOR_DEPENDS -> {
+                RetryState state = update(resourceID, RetryState::withPoolingAttempt);
+                yield delay(previousAttempts(state.poolingAttempts()), CR_POOLING_MAX_INTERVAL);
+            }
+            default -> {
+                //any other phase starts a new processing attempt, both counters start from scratch
+                retryCache.put(resourceID, RetryState.FIRST_ATTEMPT);
+                yield 1;
+            }
+        };
+    }
+
+    private RetryState update(ResourceID resourceID, UnaryOperator<RetryState> attempt) {
+        return retryCache.compute(resourceID, (id, state) -> attempt.apply(state == null ? RetryState.NO_ATTEMPTS : state));
+    }
+
+    private static int previousAttempts(int attempts) {
+        return attempts - 1;
+    }
+
+    private static int delay(int previousAttempts, double maxInterval) {
+        if (previousAttempts == 0) {
             return 1;
+        }
+        return (int) Math.min(2 * Math.pow(2, (double) previousAttempts / 2), maxInterval);
+    }
+
+    /**
+     * Attempt counters of a single resource. Attempts to apply a CR that failed and status requests
+     * of an operation that has already been accepted are counted separately: the delay before the
+     * first status request must not depend on how many apply attempts failed before.
+     */
+    private record RetryState(int applyAttempts, int poolingAttempts) {
+        private static final RetryState NO_ATTEMPTS = new RetryState(0, 0);
+        private static final RetryState FIRST_ATTEMPT = new RetryState(1, 1);
+
+        private RetryState withApplyAttempt() {
+            return new RetryState(applyAttempts + 1, poolingAttempts);
+        }
+
+        private RetryState withPoolingAttempt() {
+            return new RetryState(applyAttempts, poolingAttempts + 1);
         }
     }
 }

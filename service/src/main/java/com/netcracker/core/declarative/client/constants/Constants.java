@@ -15,6 +15,14 @@ public class Constants {
     public static final String TYPE_UNKNOWN = "Unknown";
     public static final String MESSAGE_UNKNOWN = "Can not parse error response";
     public static final double CR_RETRY_MAX_INTERVAL = 900D;
+    public static final double CR_POOLING_MAX_INTERVAL = 30D;
+    /**
+     * How many failed apply attempts a CR is given before it is declared invalid. Only
+     * BackingOff attempts are counted: waiting for dependencies is not limited. With the
+     * delays produced by {@link com.netcracker.core.declarative.client.cache.RetryResourceCache}
+     * this budget spans roughly 70 minutes.
+     */
+    public static final int CR_RETRY_MAX_ATTEMPTS = 20;
     public static final String CR_RETRY_EXCEEDED_MESSAGE = "CR processing retries exceeded";
     public static final String CR_RETRY_EXCEEDED_REASON = "Exceeded the amount of retries while waiting for CR to be processed";
 

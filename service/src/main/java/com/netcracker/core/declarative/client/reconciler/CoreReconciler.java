@@ -199,7 +199,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     protected UpdateControl<T> onReconciliationCompleted(T resource) {
         log.info("Successfully finished processing CR");
         resource.getStatus().getConditions().clear();
-        retryResourceCache.remove(ResourceID.fromResource(resource));
+        retryResourceCache.reset(ResourceID.fromResource(resource));
         return UpdateControl.patchStatus(resource);
     }
 
@@ -319,7 +319,12 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         if (phase == UPDATED_PHASE) {
             resource.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
         }
-        int nextDelay = retryResourceCache.getNextDelay(phase, ResourceID.fromResource(resource));
+        ResourceID resourceID = ResourceID.fromResource(resource);
+        int nextDelay = retryResourceCache.getNextDelay(phase, resourceID);
+        if (phase == BACKING_OFF && retryResourceCache.isRetryLimitReached(resourceID)) {
+            retryResourceCache.reset(resourceID);
+            return setPhaseInvalidIfRetryLimitReached(resource);
+        }
         return UpdateControl.patchStatus(resource).rescheduleAfter(nextDelay, TimeUnit.SECONDS);
     }
 
