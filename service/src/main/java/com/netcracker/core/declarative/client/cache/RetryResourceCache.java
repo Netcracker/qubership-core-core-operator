@@ -57,14 +57,16 @@ public class RetryResourceCache {
     /**
      * Attempt counters of a single resource. Attempts to apply a CR that failed and status requests
      * of an operation that has already been accepted are counted separately: the delay before the
-     * first status request must not depend on how many apply attempts failed before.
+     * first status request must not depend on how many apply attempts failed before, and a new apply
+     * attempt restarts status polling, so a new operation is not polled with the delay of a previous one.
      */
     private record RetryState(int applyAttempts, int poolingAttempts) {
         private static final RetryState NO_ATTEMPTS = new RetryState(0, 0);
         private static final RetryState FIRST_ATTEMPT = new RetryState(1, 1);
 
         private RetryState withApplyAttempt() {
-            return new RetryState(applyAttempts + 1, poolingAttempts);
+            // a new apply may start a new operation, whose polling must not inherit the delay of the previous one
+            return new RetryState(applyAttempts + 1, Math.min(poolingAttempts, FIRST_ATTEMPT.poolingAttempts));
         }
 
         private RetryState withPoolingAttempt() {

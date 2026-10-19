@@ -69,6 +69,21 @@ class RetryResourceCacheTest {
     }
 
     @Test
+    void newApplyAttemptRestartsPolling() {
+        RetryResourceCache cache = new RetryResourceCache();
+
+        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
+        for (int i = 0; i < 20; i++) {
+            cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
+        }
+        assertEquals((int) CR_POOLING_MAX_INTERVAL, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
+
+        //status request fails, CR is re-applied and accepted again as a new operation
+        assertEquals(2, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));
+        assertEquals(2, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
+    }
+
+    @Test
     void terminalPhaseResetsBothCounters() {
         RetryResourceCache cache = new RetryResourceCache();
 
