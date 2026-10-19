@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.UnaryOperator;
 
 import static com.netcracker.core.declarative.client.constants.Constants.CR_POOLING_MAX_INTERVAL;
-import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_ATTEMPTS;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_INTERVAL;
 
 /**
@@ -26,24 +25,15 @@ public class RetryResourceCache {
         retryCache.remove(resourceID);
     }
 
-    /**
-     * Tells whether a resource has used up its apply attempts. Only failed apply attempts are
-     * counted, so a resource waiting for its dependencies is never given up on.
-     */
-    public boolean isRetryLimitReached(ResourceID resourceID) {
-        RetryState state = retryCache.get(resourceID);
-        return state != null && previousAttempts(state.applyAttempts()) >= CR_RETRY_MAX_ATTEMPTS;
-    }
-
     public int getNextDelay(Phase phase, ResourceID resourceID) {
         return switch (phase) {
             case BACKING_OFF -> {
                 RetryState state = update(resourceID, RetryState::withApplyAttempt);
-                yield delay(previousAttempts(state.applyAttempts()), CR_RETRY_MAX_INTERVAL);
+                yield delay(state.applyAttempts() - 1, CR_RETRY_MAX_INTERVAL);
             }
             case WAITING_FOR_DEPENDS -> {
                 RetryState state = update(resourceID, RetryState::withPoolingAttempt);
-                yield delay(previousAttempts(state.poolingAttempts()), CR_POOLING_MAX_INTERVAL);
+                yield delay(state.poolingAttempts() - 1, CR_POOLING_MAX_INTERVAL);
             }
             default -> {
                 //any other phase starts a new processing attempt, both counters start from scratch
@@ -55,10 +45,6 @@ public class RetryResourceCache {
 
     private RetryState update(ResourceID resourceID, UnaryOperator<RetryState> attempt) {
         return retryCache.compute(resourceID, (id, state) -> attempt.apply(state == null ? RetryState.NO_ATTEMPTS : state));
-    }
-
-    private static int previousAttempts(int attempts) {
-        return attempts - 1;
     }
 
     private static int delay(int previousAttempts, double maxInterval) {

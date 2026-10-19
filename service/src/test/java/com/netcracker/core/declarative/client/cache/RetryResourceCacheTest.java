@@ -5,10 +5,8 @@ import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.junit.jupiter.api.Test;
 
 import static com.netcracker.core.declarative.client.constants.Constants.CR_POOLING_MAX_INTERVAL;
-import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_ATTEMPTS;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_INTERVAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RetryResourceCacheTest {
@@ -108,60 +106,5 @@ class RetryResourceCacheTest {
         }
 
         assertEquals(1, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, other));
-    }
-
-    @Test
-    void retryLimitIsNotReachedWhileBudgetRemains() {
-        RetryResourceCache cache = new RetryResourceCache();
-
-        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
-        for (int i = 0; i < CR_RETRY_MAX_ATTEMPTS - 1; i++) {
-            cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID);
-            assertFalse(cache.isRetryLimitReached(RESOURCE_ID));
-        }
-    }
-
-    @Test
-    void retryLimitIsReachedOnceBudgetIsSpent() {
-        RetryResourceCache cache = new RetryResourceCache();
-
-        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
-        for (int i = 0; i < CR_RETRY_MAX_ATTEMPTS; i++) {
-            cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID);
-        }
-
-        assertTrue(cache.isRetryLimitReached(RESOURCE_ID));
-    }
-
-    @Test
-    void waitingForDependenciesDoesNotSpendTheRetryBudget() {
-        RetryResourceCache cache = new RetryResourceCache();
-
-        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
-        for (int i = 0; i < CR_RETRY_MAX_ATTEMPTS * 2; i++) {
-            cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
-        }
-
-        assertFalse(cache.isRetryLimitReached(RESOURCE_ID));
-    }
-
-    @Test
-    void resetGivesTheRetryBudgetBack() {
-        RetryResourceCache cache = new RetryResourceCache();
-
-        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
-        for (int i = 0; i < CR_RETRY_MAX_ATTEMPTS; i++) {
-            cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID);
-        }
-        cache.reset(RESOURCE_ID);
-
-        assertFalse(cache.isRetryLimitReached(RESOURCE_ID));
-    }
-
-    @Test
-    void anUntrackedResourceHasNotReachedTheRetryLimit() {
-        RetryResourceCache cache = new RetryResourceCache();
-
-        assertFalse(cache.isRetryLimitReached(RESOURCE_ID));
     }
 }

@@ -319,12 +319,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
         if (phase == UPDATED_PHASE) {
             resource.getStatus().setAdditionalProperty(PROCESSED_BY_OPERATOR_VER_PROPERTY, deploymentSessionId);
         }
-        ResourceID resourceID = ResourceID.fromResource(resource);
-        int nextDelay = retryResourceCache.getNextDelay(phase, resourceID);
-        if (phase == BACKING_OFF && retryResourceCache.isRetryLimitReached(resourceID)) {
-            retryResourceCache.reset(resourceID);
-            return setPhaseInvalidIfRetryLimitReached(resource);
-        }
+        int nextDelay = retryResourceCache.getNextDelay(phase, ResourceID.fromResource(resource));
         return UpdateControl.patchStatus(resource).rescheduleAfter(nextDelay, TimeUnit.SECONDS);
     }
 

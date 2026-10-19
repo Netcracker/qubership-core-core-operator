@@ -541,44 +541,4 @@ class CoreReconcilerTest {
         assertEquals(TYPE_UNKNOWN, condition.getType());
         assertEquals(ProcessStatus.FAILED, condition.getState());
     }
-
-    @Test
-    void spentRetryBudgetTurnsResourceInvalidInsteadOfReschedulingForever() {
-        Maas maas = new Maas();
-        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
-        ObjectMeta meta = new ObjectMeta();
-        meta.setName("maas-retry-budget");
-        meta.setNamespace("my-namespace");
-        maas.setMetadata(meta);
-        doNothing().when(maaSReconciler).fireEvent(any(), any(), any());
-
-        maaSReconciler.setPhaseAndReschedule(maas, UPDATING);
-        UpdateControl<Maas> updateControl = null;
-        for (int i = 0; i < CR_RETRY_MAX_ATTEMPTS; i++) {
-            updateControl = maaSReconciler.setPhaseAndReschedule(maas, BACKING_OFF);
-        }
-
-        assertEquals(INVALID_CONFIGURATION, updateControl.getResource().get().getStatus().getPhase());
-        assertTrue(updateControl.getScheduleDelay().isEmpty());
-        verify(maaSReconciler).fireEvent(any(), eq(CR_RETRY_EXCEEDED_MESSAGE), eq(CR_RETRY_EXCEEDED_REASON));
-    }
-
-    @Test
-    void backingOffKeepsReschedulingWhileRetryBudgetRemains() {
-        Maas maas = new Maas();
-        maas.setSpec(new RawExtension(Map.of("test-key", "test-value")));
-        ObjectMeta meta = new ObjectMeta();
-        meta.setName("maas-retry-budget-remaining");
-        meta.setNamespace("my-namespace");
-        maas.setMetadata(meta);
-
-        maaSReconciler.setPhaseAndReschedule(maas, UPDATING);
-        UpdateControl<Maas> updateControl = null;
-        for (int i = 0; i < CR_RETRY_MAX_ATTEMPTS - 1; i++) {
-            updateControl = maaSReconciler.setPhaseAndReschedule(maas, BACKING_OFF);
-        }
-
-        assertEquals(BACKING_OFF, updateControl.getResource().get().getStatus().getPhase());
-        assertTrue(updateControl.getScheduleDelay().isPresent());
-    }
 }
