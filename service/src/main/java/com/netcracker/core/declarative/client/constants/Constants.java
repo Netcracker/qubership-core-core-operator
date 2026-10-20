@@ -15,7 +15,7 @@ public class Constants {
     public static final String TYPE_UNKNOWN = "Unknown";
     public static final String MESSAGE_UNKNOWN = "Can not parse error response";
     public static final double CR_RETRY_MAX_INTERVAL = 900D;
-    public static final double CR_POOLING_MAX_INTERVAL = 30D;
+    public static final double CR_POLLING_MAX_INTERVAL = 30D;
     public static final String CR_RETRY_EXCEEDED_MESSAGE = "CR processing retries exceeded";
     public static final String CR_RETRY_EXCEEDED_REASON = "Exceeded the amount of retries while waiting for CR to be processed";
 

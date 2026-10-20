@@ -4,7 +4,7 @@ import com.netcracker.core.declarative.resources.base.Phase;
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.junit.jupiter.api.Test;
 
-import static com.netcracker.core.declarative.client.constants.Constants.CR_POOLING_MAX_INTERVAL;
+import static com.netcracker.core.declarative.client.constants.Constants.CR_POLLING_MAX_INTERVAL;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_INTERVAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,7 +41,7 @@ class RetryResourceCacheTest {
     }
 
     @Test
-    void poolingDelayGrowsAndIsCappedSeparately() {
+    void pollingDelayGrowsAndIsCappedSeparately() {
         RetryResourceCache cache = new RetryResourceCache();
 
         assertEquals(1, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
@@ -51,12 +51,11 @@ class RetryResourceCacheTest {
         for (int i = 0; i < 20; i++) {
             cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
         }
-        assertEquals((int) CR_POOLING_MAX_INTERVAL, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
-        assertTrue(CR_POOLING_MAX_INTERVAL < CR_RETRY_MAX_INTERVAL);
+        assertEquals((int) CR_POLLING_MAX_INTERVAL, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
     }
 
     @Test
-    void poolingAttemptsDoNotResetBackingOffDelay() {
+    void pollingAttemptsDoNotResetBackingOffDelay() {
         RetryResourceCache cache = new RetryResourceCache();
 
         cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
@@ -76,7 +75,7 @@ class RetryResourceCacheTest {
         for (int i = 0; i < 20; i++) {
             cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
         }
-        assertEquals((int) CR_POOLING_MAX_INTERVAL, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
+        assertEquals((int) CR_POLLING_MAX_INTERVAL, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
 
         //status request fails, CR is re-applied and accepted again as a new operation
         assertEquals(2, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));

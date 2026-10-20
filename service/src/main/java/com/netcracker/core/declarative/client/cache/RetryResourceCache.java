@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.UnaryOperator;
 
-import static com.netcracker.core.declarative.client.constants.Constants.CR_POOLING_MAX_INTERVAL;
+import static com.netcracker.core.declarative.client.constants.Constants.CR_POLLING_MAX_INTERVAL;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_INTERVAL;
 
 /**
@@ -32,8 +32,8 @@ public class RetryResourceCache {
                 yield delay(state.applyAttempts() - 1, CR_RETRY_MAX_INTERVAL);
             }
             case WAITING_FOR_DEPENDS -> {
-                RetryState state = update(resourceID, RetryState::withPoolingAttempt);
-                yield delay(state.poolingAttempts() - 1, CR_POOLING_MAX_INTERVAL);
+                RetryState state = update(resourceID, RetryState::withPollingAttempt);
+                yield delay(state.pollingAttempts() - 1, CR_POLLING_MAX_INTERVAL);
             }
             default -> {
                 //any other phase starts a new processing attempt, both counters start from scratch
@@ -60,17 +60,17 @@ public class RetryResourceCache {
      * first status request must not depend on how many apply attempts failed before, and a new apply
      * attempt restarts status polling, so a new operation is not polled with the delay of a previous one.
      */
-    private record RetryState(int applyAttempts, int poolingAttempts) {
+    private record RetryState(int applyAttempts, int pollingAttempts) {
         private static final RetryState NO_ATTEMPTS = new RetryState(0, 0);
         private static final RetryState FIRST_ATTEMPT = new RetryState(1, 1);
 
         private RetryState withApplyAttempt() {
             // a new apply may start a new operation, whose polling must not inherit the delay of the previous one
-            return new RetryState(applyAttempts + 1, Math.min(poolingAttempts, FIRST_ATTEMPT.poolingAttempts));
+            return new RetryState(applyAttempts + 1, Math.min(pollingAttempts, FIRST_ATTEMPT.pollingAttempts));
         }
 
-        private RetryState withPoolingAttempt() {
-            return new RetryState(applyAttempts, poolingAttempts + 1);
+        private RetryState withPollingAttempt() {
+            return new RetryState(applyAttempts, pollingAttempts + 1);
         }
     }
 }
