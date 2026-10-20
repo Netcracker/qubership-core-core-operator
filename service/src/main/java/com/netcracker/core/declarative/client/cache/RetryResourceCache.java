@@ -36,21 +36,18 @@ public class RetryResourceCache {
                 yield delay(state.pollingAttempts() - 1, CR_POLLING_MAX_INTERVAL);
             }
             default -> {
-                //any other phase starts a new processing attempt, both counters start from scratch
-                retryCache.put(resourceID, RetryState.FIRST_ATTEMPT);
+                //any other phase starts a new processing attempt, which is the same as having no state
+                reset(resourceID);
                 yield 1;
             }
         };
     }
 
     private RetryState update(ResourceID resourceID, UnaryOperator<RetryState> attempt) {
-        return retryCache.compute(resourceID, (id, state) -> attempt.apply(state == null ? RetryState.NO_ATTEMPTS : state));
+        return retryCache.compute(resourceID, (id, state) -> attempt.apply(state == null ? RetryState.FIRST_ATTEMPT : state));
     }
 
     private static int delay(int previousAttempts, double maxInterval) {
-        if (previousAttempts == 0) {
-            return 1;
-        }
         return (int) Math.min(2 * Math.pow(2, (double) previousAttempts / 2), maxInterval);
     }
 
@@ -59,18 +56,22 @@ public class RetryResourceCache {
      * of an operation that has already been accepted are counted separately: the delay before the
      * first status request must not depend on how many apply attempts failed before, and a new apply
      * attempt restarts status polling, so a new operation is not polled with the delay of a previous one.
+     * The apply backoff is kept while an accepted operation is only waiting for its first status
+     * response, so a status endpoint failing right after every apply does not turn into a re-apply loop.
      */
     private record RetryState(int applyAttempts, int pollingAttempts) {
-        private static final RetryState NO_ATTEMPTS = new RetryState(0, 0);
         private static final RetryState FIRST_ATTEMPT = new RetryState(1, 1);
 
         private RetryState withApplyAttempt() {
-            // a new apply may start a new operation, whose polling must not inherit the delay of the previous one
-            return new RetryState(applyAttempts + 1, Math.min(pollingAttempts, FIRST_ATTEMPT.pollingAttempts));
+            //a new apply may start a new operation, whose polling must not inherit the delay of the previous one
+            return new RetryState(applyAttempts + 1, FIRST_ATTEMPT.pollingAttempts);
         }
 
         private RetryState withPollingAttempt() {
-            return new RetryState(applyAttempts, pollingAttempts + 1);
+            //polling past the first attempt means a status request succeeded, so the remote is healthy again
+            //and a later failure must not resume the apply backoff accumulated before
+            boolean statusReceived = pollingAttempts > FIRST_ATTEMPT.pollingAttempts;
+            return new RetryState(statusReceived ? FIRST_ATTEMPT.applyAttempts : applyAttempts, pollingAttempts + 1);
         }
     }
 }

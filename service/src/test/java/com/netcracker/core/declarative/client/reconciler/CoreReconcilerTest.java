@@ -92,12 +92,12 @@ class CoreReconcilerTest {
         OkHttpMocks.stub(maasHttpClient, 202, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
-        assertEquals(1000L, (long) maasUpdateControl.getScheduleDelay().get());
+        assertEquals(2000L, (long) maasUpdateControl.getScheduleDelay().get());
 
         OkHttpMocks.stub(maasHttpClient, 202, respJson);
         maasUpdateControl = maaSReconciler.reconcileInternal(anotherMaas);
         assertEquals(WAITING_FOR_DEPENDS, maasUpdateControl.getResource().get().getStatus().getPhase());
-        assertEquals(2000L, (long) maasUpdateControl.getScheduleDelay().get());
+        assertEquals(4000L, (long) maasUpdateControl.getScheduleDelay().get());
 
         //test retry timeout set to 1s
         OkHttpMocks.stub(maasHttpClient, 200, respJson);

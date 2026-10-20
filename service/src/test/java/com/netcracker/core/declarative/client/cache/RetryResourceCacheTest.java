@@ -43,9 +43,9 @@ class RetryResourceCacheTest {
     void pollingDelayGrowsAndIsCappedSeparately() {
         RetryResourceCache cache = new RetryResourceCache();
 
-        assertEquals(1, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
         assertEquals(2, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
         assertEquals(4, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
+        assertEquals(5, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
 
         for (int i = 0; i < 20; i++) {
             cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
@@ -64,6 +64,33 @@ class RetryResourceCacheTest {
         //operation accepted, then a status request fails and the CR is re-applied
         cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
         assertEquals(5, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));
+    }
+
+    @Test
+    void statusFailingAfterEveryApplyKeepsBackingOff() {
+        RetryResourceCache cache = new RetryResourceCache();
+
+        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
+        int[] expected = {2, 4, 5, 8, 11};
+        for (int delay : expected) {
+            //every apply is accepted, but the first status request of every operation fails
+            cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
+            assertEquals(delay, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));
+        }
+    }
+
+    @Test
+    void successfulStatusRequestResetsBackingOffDelay() {
+        RetryResourceCache cache = new RetryResourceCache();
+
+        cache.getNextDelay(Phase.UPDATING, RESOURCE_ID);
+        for (int i = 0; i < 10; i++) {
+            cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID);
+        }
+        //apply accepted, first status request succeeds, then a later one fails
+        cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
+        cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
+        assertEquals(2, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));
     }
 
     @Test
@@ -105,8 +132,8 @@ class RetryResourceCacheTest {
         }
         cache.reset(RESOURCE_ID);
 
-        assertEquals(1, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));
-        assertEquals(1, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
+        assertEquals(2, cache.getNextDelay(Phase.BACKING_OFF, RESOURCE_ID));
+        assertEquals(2, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID));
     }
 
     @Test
@@ -118,6 +145,6 @@ class RetryResourceCacheTest {
             cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, RESOURCE_ID);
         }
 
-        assertEquals(1, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, other));
+        assertEquals(2, cache.getNextDelay(Phase.WAITING_FOR_DEPENDS, other));
     }
 }
