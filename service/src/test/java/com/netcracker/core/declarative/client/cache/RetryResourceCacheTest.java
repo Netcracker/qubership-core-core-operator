@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_POLLING_MAX_INTERVAL;
 import static com.netcracker.core.declarative.client.constants.Constants.CR_RETRY_MAX_INTERVAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RetryResourceCacheTest {
     private static final ResourceID RESOURCE_ID = new ResourceID("my-declaration", "my-namespace");
