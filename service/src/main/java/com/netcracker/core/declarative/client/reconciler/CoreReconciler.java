@@ -199,7 +199,7 @@ public abstract class CoreReconciler<T extends CoreResource> implements Reconcil
     protected UpdateControl<T> onReconciliationCompleted(T resource) {
         log.info("Successfully finished processing CR");
         resource.getStatus().getConditions().clear();
-        retryResourceCache.remove(ResourceID.fromResource(resource));
+        retryResourceCache.reset(ResourceID.fromResource(resource));
         return UpdateControl.patchStatus(resource);
     }
 
