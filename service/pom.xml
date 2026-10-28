@@ -14,7 +14,7 @@
         <compiler-plugin.version>3.16.0</compiler-plugin.version>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.33.4</quarkus.platform.version>
+        <quarkus.platform.version>3.33.4.1</quarkus.platform.version>
         <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.6.1</surefire-plugin.version>
@@ -95,7 +95,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.46</version>
+            <version>1.18.48</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
@@ -190,7 +190,7 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.46</version>
+                            <version>1.18.48</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
