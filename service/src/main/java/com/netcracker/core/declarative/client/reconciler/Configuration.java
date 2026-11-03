@@ -3,7 +3,8 @@ package com.netcracker.core.declarative.client.reconciler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
 import com.netcracker.cloud.quarkus.security.auth.M2MManager;
-import com.netcracker.cloud.security.core.utils.k8s.M2MClientFactory;
+import com.netcracker.cloud.security.core.utils.k8s.AudienceName;
+import com.netcracker.cloud.security.core.utils.k8s.M2MClient;
 import com.netcracker.core.declarative.client.rest.tracing.RequestIdInterceptor;
 import com.netcracker.core.declarative.service.*;
 import io.vertx.ext.consul.ConsulClient;
@@ -22,7 +23,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.netcracker.core.declarative.client.reconciler.CompositeReconciler.DBAAS_NAME;
@@ -30,9 +30,6 @@ import static com.netcracker.core.declarative.client.reconciler.CompositeReconci
 
 @Slf4j
 public class Configuration {
-    private static final Map<String, Function<Supplier<String>, OkHttpClient>> XAAS_CLIENT_FACTORIES = Map.of(
-            MAAS_NAME.toLowerCase(), M2MClientFactory::getMaasOkHttpClient,
-            DBAAS_NAME.toLowerCase(), M2MClientFactory::getDbaasOkHttpClient);
 
     @ConfigProperty(name = "cloud.http-client.connect-timeout")
     Duration clientConnectTimeout;
@@ -40,43 +37,72 @@ public class Configuration {
     @ConfigProperty(name = "cloud.http-client.read-timeout")
     Duration clientReadTimeout;
 
+    @ConfigProperty(name = "dbaas.agent.address")
+    String dbaasAgentUrl;
+
+    @ConfigProperty(name = "maas.agent.address")
+    String maasAgentUrl;
+
     @Produces
     @Named("maasHttpClient")
     @ApplicationScoped
     public OkHttpClient maasHttpClient() {
-        return configure(M2MClientFactory.getMaasOkHttpClient(m2mToken()));
+        return configure(maasClient());
     }
 
     @Produces
     @Named("dbaasHttpClient")
     @ApplicationScoped
     public OkHttpClient dbaasHttpClient() {
-        return configure(M2MClientFactory.getDbaasOkHttpClient(m2mToken()));
+        return configure(dbaasClient());
     }
 
     @Produces
     @Named("keyManagerHttpClient")
     @ApplicationScoped
     public OkHttpClient keyManagerHttpClient() {
-        return configure(M2MClientFactory.getM2mOkHttpClient(m2mToken()));
+        return configure(m2mClient());
     }
 
     @Produces
     @Named("idpExtensionsHttpClient")
     @ApplicationScoped
     public OkHttpClient idpExtensionsHttpClient() {
-        return configure(M2MClientFactory.getM2mOkHttpClient(m2mToken()));
+        return configure(m2mClient());
     }
 
     @Produces
     @Named("meshHttpClient")
     @ApplicationScoped
     public OkHttpClient meshHttpClient() {
-        return configure(M2MClientFactory.getM2mOkHttpClient(m2mToken()));
+        return configure(m2mClient());
     }
+
 
     private static Supplier<String> m2mToken() {
         return () -> M2MManager.getInstance().getToken().getTokenValue();
+    }
+
+    private OkHttpClient m2mClient() {
+        return M2MClient.builder()
+                .keycloakTokenSupplier(m2mToken())
+                .build();
+    }
+
+    private OkHttpClient dbaasClient() {
+        return M2MClient.builder()
+                .audience(AudienceName.DBAAS)
+                .agentUrl(dbaasAgentUrl)
+                .keycloakTokenSupplier(m2mToken())
+                .build();
+    }
+
+    private OkHttpClient maasClient() {
+        return M2MClient.builder()
+                .audience(AudienceName.MAAS)
+                .agentUrl(maasAgentUrl)
+                .keycloakTokenSupplier(m2mToken())
+                .build();
     }
 
     private OkHttpClient configure(OkHttpClient base) {
@@ -112,15 +138,21 @@ public class Configuration {
     /**
      * XaaSes reachable only through their own agent need a dedicated client, everything else talks plain m2m.
      */
-    private static OkHttpClient compositeStructureClient(String xaasName, long readTimeout, long connectTimeout) {
-        return XAAS_CLIENT_FACTORIES
-                .getOrDefault(xaasName.toLowerCase(), M2MClientFactory::getM2mOkHttpClient)
-                .apply(m2mToken())
+    private OkHttpClient compositeStructureClient(String xaasName, long readTimeout, long connectTimeout) {
+        return xaasClient(xaasName)
                 .newBuilder()
                 .addInterceptor(new RequestIdInterceptor())
                 .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
                 .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
                 .build();
+    }
+
+    private OkHttpClient xaasClient(String xaasName) {
+        return switch (xaasName) {
+            case String name when name.equalsIgnoreCase(MAAS_NAME) -> maasClient();
+            case String name when name.equalsIgnoreCase(DBAAS_NAME) -> dbaasClient();
+            default -> m2mClient();
+        };
     }
 
     @Produces
