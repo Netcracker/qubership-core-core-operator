@@ -1,0 +1,31 @@
+{{- $mode := .Values.CONSUL_AUTH_MODE | default .Values.M2M_AUTH_MODE | default "legacy" | trim }}
+{{- if and (eq (toString .Values.CONSUL_ENABLED) "true") (has $mode (list "hybrid" "k8s")) (.Capabilities.APIVersions.Has "netcracker.com/v1/ConsulACL") }}
+{{- $consulHostParts := splitList "." (urlParse (required "CONSUL_URL is required to create the ConsulACL resource" .Values.CONSUL_URL)).hostname }}
+---
+# Grants core-operator write access to the Composite structure in Consul and to the reference to it in the
+# configs of the namespace, for a login with the auth method applications-k8s-m2m.
+apiVersion: netcracker.com/v1
+kind: ConsulACL
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}'
+  namespace: '{{ .Values.NAMESPACE }}'
+  labels:
+    app.kubernetes.io/part-of: 'Cloud-Core'
+    app.kubernetes.io/managed-by: 'saasDeployer'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+{{- if gt (len $consulHostParts) 1 }}
+  operatorNamespace: {{ index $consulHostParts 1 | quote }}
+{{- end }}
+  acl:
+    name: '{{ .Values.SERVICE_NAME }}'
+    json: >
+      {
+        "policies": [
+          {"Name": "composite-write", "Rules": "key_prefix \"composite/\" { policy = \"write\" }"},
+          {"Name": "structure-ref-write", "Rules": "key \"config/{{ .Values.NAMESPACE }}/application/composite/structureRef\" { policy = \"write\" }"}
+        ],
+        "roles": [{"Name": "service", "policy_names": ["composite-write", "structure-ref-write"]}],
+        "bind_rules": [{"BindName": "service", "ServiceAccountName": "{{ .Values.SERVICE_NAME }}"}]
+      }
+{{- end }}
