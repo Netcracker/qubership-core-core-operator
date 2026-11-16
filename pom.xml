@@ -30,7 +30,7 @@
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>core-quarkus-external-bom</artifactId>
-                <version>1.1.7</version>
+                <version>1.2.0-feat-consul-acl-login-SNAPSHOT</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
