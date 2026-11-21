@@ -1,4 +1,9 @@
-MEM_ARGS: "-XX:+UseSerialGC -XX:+UnlockExperimentalVMOptions -XX:CICompilerCount=2 -Xms8m -Xmx64m -Xss256k -XX:MetaspaceSize=32m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=20M  -XX:CompressedClassSpaceSize=32M -XX:MinMetaspaceExpansion=1M -XX:MaxMetaspaceExpansion=8M -XX:CodeCacheExpansionSize=256k -XX:MaxDirectMemorySize=10M -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40 -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 "
+MEM_ARGS: >-
+  -XX:+UseSerialGC -Xms32m -Xmx64m -Xss256k
+  -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=32m
+  -XX:MinMetaspaceExpansion=1m -XX:MaxMetaspaceExpansion=8m
+  -XX:MaxDirectMemorySize=10m -XX:ReservedCodeCacheSize=32m -XX:CodeCacheExpansionSize=256k
+  -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40
 MEMORY_LIMIT: "256Mi"
 CPU_REQUEST: "100m"
 CPU_LIMIT: "1"
