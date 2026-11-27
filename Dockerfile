@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.5.15@sha256:1686136b058ba54c38dfb9537eb0ac2d0d4ba8b29ccd96af5c25fa2c7c68d320
+FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.6.1@sha256:82026253e3c04e90d2a03310e5e5c23619c3b0010990956ec7521312cdc94223
 LABEL maintainer="qubership"
 
 COPY --chown=10001:0 service/target/quarkus-app/lib/ /app/lib/
