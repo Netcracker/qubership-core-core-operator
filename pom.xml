@@ -4,7 +4,7 @@
 
     <groupId>com.netcracker.core</groupId>
     <artifactId>core-operator-parent</artifactId>
-    <version>3.4.0-SNAPSHOT</version>
+    <version>3.4.1-SNAPSHOT</version>
 
     <licenses>
         <license>
@@ -30,7 +30,7 @@
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>core-quarkus-external-bom</artifactId>
-                <version>1.2.0-feat-consul-acl-login-SNAPSHOT</version>
+                <version>1.2.3-feat-consul-acl-login-SNAPSHOT</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
